@@ -1,0 +1,43 @@
+
+
+# Emilio Montelongo Luna
+# Student Number: 11317059
+# NSID: rjq760
+# CMPT 332-Fall-2026
+
+# Ahmet Guldadov
+# Student Number: 11369772
+# NSID: six402
+# CMPT 332-Fall-2026
+
+
+
+
+Thoughts based on lecture slides / notes:
+- C doesn't have native monitor objects, so we have to fake the 
+mutual exclusion boundary.
+- The slides show that we can build monitor semantics using standard Semaphores
+- We need one global binary semaphore (initialized to 1). This is our monitor 
+lock.
+- MonEnter() will just wait on this semaphore (RttP) and MonLeave() will signal
+ it (RttV).
+
+Condition Variables (CVs):
+- The assignment says k is a compile-time constant (we're using 10).
+- For each CV, we need a way to keep track of who is waiting.Our
+  A1 List library comes in here?. We'll have an array of 10 lists.
+- We also need an array of 10 semaphores (initialized to 0) to actually block 
+the threads.
+- Wait logic: 
+  * Add the thread to the CV's list.
+  * Release the main monitor lock (so someone else can enter).
+  * Block on the CV's specific semaphore.
+  * When woken up, we must re-acquire the main monitor lock before continuing.
+- Signal logic:
+  * Check if the CV's list has anyone in it.
+  * If it does, pop them off the list and signal their semaphore to wake them 
+up.
+
+For Phase 1, we are just getting the lists initialized and the function stubs 
+ready so that the provided reader_writer test can link to our library without 
+crashing. Phase 2 will plug in the actual RttP/RttV calls.
