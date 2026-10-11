@@ -28,7 +28,7 @@ CPPFLAGS = -I. -I/student/cmpt332/pthreads/ -I/student/cmpt332/rtt/include/
 RTT_LIB = -L/student/cmpt332/rtt/lib/Linuxx86_64
 PTH_LIB = -L/student/cmpt332/pthreads/lib/Linuxx86_64
 
-all: libMonitor.a reader_writer_test s-chat
+all: libMonitor.a reader_writer_test s-chat liblist.a
 
 # Part B: Monitor Library
 libMonitor.a: Monitor_linux.o
@@ -55,6 +55,20 @@ reader_writer_monitor_linux.o: reader_writer_monitor.c \
 readers_writers_linux.o: readers_writers.c reader_writer_monitor.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c readers_writers.c -o \
 		readers_writers_linux.o
+
+# Part B & C: List Library (From A1)
+liblist.a: list_adders_linux.o list_movers_linux.o list_removers_linux.o
+	ar rcs liblist.a list_adders_linux.o list_movers_linux.o \
+	 list_removers_linux.o
+
+list_adders_linux.o: list_adders.c list.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c list_adders.c -o list_adders_linux.o
+
+list_movers_linux.o: list_movers.c list.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c list_movers.c -o list_movers_linux.o
+
+list_removers_linux.o: list_removers.c list.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c list_removers.c -o list_removers_linux.o
 
 
 # Part C: S-chat
