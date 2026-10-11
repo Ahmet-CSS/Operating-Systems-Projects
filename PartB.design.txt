@@ -41,3 +41,67 @@ up.
 For Phase 1, we are just getting the lists initialized and the function stubs 
 ready so that the provided reader_writer test can link to our library without 
 crashing. Phase 2 will plug in the actual RttP/RttV calls.
+
+
+Pseudocode:
+PartB.design.txt
+
+Plaintext
+CMPT 332 Group - Fall 2026
+Emilio Montelongo Luna (11317059) & Ahmet Guldadov (11369772)
+Part B: Monitor Implementation Design & Pseudocode
+
+SOLUTION STRATEGY:
+C does not have native monitor objects, so we enforce the mutual exclusion 
+boundary manually. We use a single global binary semaphore (initialized to 1) 
+called `monitor_mutex`. Every monitor procedure must start with `MonEnter()` 
+and end with `MonLeave()`. 
+
+For condition variables (CVs), we maintain an array of 10 lists (using our A1 
+list library) to track blocked threads, and an array of 10 semaphores 
+(initialized to 0) to execute the blocking. 
+
+WHY THIS IS CORRECT:
+By guarding every monitor entry/exit with the `monitor_mutex`, we guarantee 
+strict mutual exclusion; no two threads can execute monitor code simultaneously. 
+When a thread calls `MonWait()`, it deliberately releases the `monitor_mutex` 
+before blocking on the CV semaphore. This prevents deadlocks and allows another 
+thread to enter the monitor. Crucially, upon waking, the signaled thread 
+immediately blocks to re-acquire the `monitor_mutex`, ensuring that the mutual 
+exclusion invariant is never violated during a context switch.
+
+PSEUDOCODE:
+
+MonInit():
+    monitor_mutex = RttAllocSem(1)
+    for i from 0 to MAX_CV - 1:
+        cv_sems[i] = RttAllocSem(0)
+        cv_lists[i] = ListCreate()
+
+MonEnter():
+    RttP(monitor_mutex)
+
+MonLeave():
+    RttV(monitor_mutex)
+
+MonWait(cv):
+    thread_id = RttMyId()
+    ListAppend(cv_lists[cv], thread_id)
+    
+    /* Release the monitor lock so others can enter */
+    RttV(monitor_mutex)
+    
+    /* Block the current thread on condition variable */
+    RttP(cv_sems[cv])
+    
+    /* Thread woke up (was signaled). Must re-acquire themonitor lock */
+    RttP(monitor_mutex)
+
+MonSignal(cv):
+    /* If no one is waiting, signal does nothing */
+    if ListCount(cv_lists[cv]) > 0:
+        ListFirst(cv_lists[cv])
+        thread_id = ListRemove(cv_lists[cv])
+        
+        /* Wake up th thread that was removed from the list */
+        RttV(cv_sems[cv])
