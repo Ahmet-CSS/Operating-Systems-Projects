@@ -29,7 +29,13 @@ LIST *cv_lists[MAX_CV];
  */
 void MonInit(int numConds) {
     int i;
-    for (i = 0; i < MAX_CV; i++) {
+
+    if (numConds <= 0 || numConds > MAX_CV) {
+	fprintf(stderr, "Error: Invalid number of conditions\n");
+	exit(1);
+	} 
+
+    for (i = 0; i < numConds; i++) {
         cv_lists[i] = ListCreate();
         if (cv_lists[i] == NULL) {
             fprintf(stderr, "Error: Failed to create list for CV %d\n", i);

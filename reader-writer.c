@@ -12,6 +12,20 @@
    *********** reader-writer.c ***********
 */
 
+/* Emilio Montelongo Luna                                                       
+ * 11317059                                                                     
+ * rjq760                                                                       
+ * CMPT 332-Fall-2026                                                           
+ */                                                                             
+                                                                                
+                                                                                
+/*                                                                              
+ Ahmet Guldadov                                                                 
+ Student Number: 11369772                                                       
+ NSID: six402                                                                   
+ CMPT 332-Fall-2026                                                             
+**/ 
+
 
 #include <stdio.h>
 
