@@ -1,13 +1,15 @@
-#Emilio Montelongo Luna                                                         
-#11317069                                                                       
-#rjq760                                                                         
-#CMPT 332-Fall-2026                                                             
+/*Emilio Montelongo Luna                                                         
+ 11317069                                                                       
+ rjq760                                                                         
+ CMPT 332-Fall-2026                                                             
                                                                                 
-# Ahmet Guldadov                                                                
-# Student Number: 11369772                                                      
-# NSID: six402                                                                  
-# CMPT 332-Fall-2026                                                            
+ Ahmet Guldadov                                                                
+ Student Number: 11369772                                                      
+ NSID: six402                                                                  
+ CMPT 332-Fall-2026                                                            
                        
+*/ 
+
 
 
 #ifndef READER_WRITER_MONITOR_H
