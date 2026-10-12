@@ -17,7 +17,7 @@
 
 #define MAX_CV 10
 
-void MonInit(void);
+void MonInit(int numConds);
 void MonEnter(void);
 void MonLeave(void);
 int MonWait(int cv);

@@ -27,7 +27,7 @@ LIST *cv_lists[MAX_CV];
  * Parameters: None
  * Returns: void
  */
-void MonInit(void) {
+void MonInit(int numConds) {
     int i;
     for (i = 0; i < MAX_CV; i++) {
         cv_lists[i] = ListCreate();

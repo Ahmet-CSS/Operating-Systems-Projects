@@ -46,14 +46,13 @@ reader_writer_test: readers_writers_linux.o reader_writer_monitor_linux.o \
 		reader_writer_monitor_linux.o \
 		-L. -lMonitor -llist $(RTT_LIB) -lrtt
 
-reader_writer_monitor_linux.o: reader_writer_monitor.c \
-	reader_writer_monitor.h\
-	Monitor.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c reader_writer_monitor.c\
+reader_writer_monitor_linux.o: reader-writer-monitor.c \
+	reader-writer-monitor.h Monitor.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c reader-writer-monitor.c\
 	       	-o reader_writer_monitor_linux.o
 
-readers_writers_linux.o: readers_writers.c reader_writer_monitor.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c readers_writers.c -o \
+readers_writers_linux.o: reader-writer.c reader-writer-monitor.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c reader-writer.c -o \
 		readers_writers_linux.o
 
 # Part B & C: List Library (From A1)
