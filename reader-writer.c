@@ -11,7 +11,7 @@
 
    *********** reader-writer.c ***********
 */
-
+/* CMPT 332 GROUP 18 Change, Fall 2026 */
 /* Emilio Montelongo Luna                                                       
  * 11317059                                                                     
  * rjq760                                                                       
