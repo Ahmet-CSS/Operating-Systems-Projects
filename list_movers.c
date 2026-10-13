@@ -29,8 +29,6 @@ int node_pool_initialized = 0;
 LIST *ListCreate(void) {
 	
 
-    /* TODO: Implement memory pool initialization and list creation */
-	
 	int i;
 
 
@@ -74,9 +72,7 @@ int ListCount(LIST *list) {
     }
     	printf("Got to procedure ListCount\n");
 
-    /* TODO: Return actual list->count */
-
-    	return 0;
+    	return list->count;
 }
 
 /*
@@ -92,9 +88,9 @@ void *ListFirst(LIST *list) {
     }
     	printf("Got to procedure ListFirst\n");
 
-    /* TODO: Implement logic to set current to head and return item */
 
-    	return NULL;
+    	list->curr = list->head;
+	return list->curr->item;
 }
 
 /*
@@ -110,9 +106,9 @@ void *ListLast(LIST *list) {
     }
     	printf("Got to procedure ListLast\n");
 
-    /* TODO: Implement logic to set current to tail and return item */
 
-    	return NULL;
+    	list->curr = list->tail;
+	return list->curr->item;
 }
 
 /*
@@ -128,9 +124,13 @@ void *ListNext(LIST *list) {
     }
    	 printf("Got to procedure ListNext\n");
 
-    /* TODO: Implement logic to advance current pointer */
 
-    	return NULL;
+    	list->curr = list->curr->next;
+        
+        if (list->curr != NULL) {
+                return list->curr->item;
+        }
+        return NULL;
 }
 
 /*
@@ -146,9 +146,21 @@ void *ListPrev(LIST *list) {
     }
     	printf("Got to procedure ListPrev\n");
 
-    /* TODO: Implement logic to retreat current pointer */
 
-    	return NULL;
+    	if (list->curr == NULL) {
+                if (list->tail != NULL) {
+                        list->curr = list->tail;
+                        return list->curr->item;
+                }
+                return NULL; /* List is actually empty */
+        }
+
+        list->curr = list->curr->prev;
+        
+        if (list->curr != NULL) {
+                return list->curr->item;
+        }
+        return NULL;
 }
 
 /*
@@ -165,9 +177,8 @@ void *ListCurr(LIST *list) {
     }
     	printf("Got to procedure ListCurr\n"); 
 
-    /* TODO: Return actual current item */
 
-    	return NULL;
+    	return list->curr->item;
 }
 
 
@@ -213,10 +224,22 @@ void *ListSearch(LIST *list, Comparator comparator, void *compArg){
     }
     	printf("Got to procedure ListSearch\n");
 
-    /* TODO: Implement search traversal using comparator function */
 
+    	while (list->curr != NULL) {
+                if (comparator(list->curr->item, compArg) == 1) {
+                        return list->curr->item;
+                }
+                list->curr = list->curr->next;
+        }
 
-    	return NULL;
+        /* 
+         * THOUGHT PROCESS & FIX: 
+         * The A1 specification said that if no match is found, 
+         * the current pointer must be left at the end of the list. The old
+         * code left it as NULL. 
+         */
+        list->curr = list->tail;
+        return NULL;
 }
 
 /*
@@ -227,11 +250,28 @@ void *ListSearch(LIST *list, Comparator comparator, void *compArg){
  */
 void ListConcat(LIST *list1, LIST *list2) {
 
-    	if (list1 == NULL || list2 == NULL) {
-        	printf("Error in procedure ListConcat: invalid parameter\n");
-        	return;
-    }
-    	printf("Got to procedure ListConcat\n");
+	if (list1 == NULL || list2 == NULL) {
+                return;
+        }
 
-    /* TODO: Implement list merging logic and free list2 structure */
+        if (list2->head != NULL) {
+                if (list1->head == NULL) {
+                        list1->head = list2->head;
+                        list1->tail = list2->tail;
+                } else {
+                        list1->tail->next = list2->head;
+                        list2->head->prev = list1->tail;
+                        list1->tail = list2->tail;
+                }
+                list1->count += list2->count;
+        }
+
+        /* Destroy list2 making it available in the list_pool again */
+        list2->head = NULL;
+        list2->tail = NULL;
+        list2->curr = NULL;
+        list2->count = 0;
+        list2->in_use = 0;
+
+
 }
