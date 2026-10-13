@@ -1,0 +1,73 @@
+
+
+# Emilio Montelongo Luna
+# Student Number: 11317059
+# NSID: rjq760
+# CMPT 332-Fall-2026
+
+# Ahmet Guldadov
+# Student Number: 11369772
+# NSID: six402
+# CMPT 332-Fall-2026
+
+
+
+PHASE 1
+---------------------------------------------------------------------------
+We use five UBC pthreads and UDP sockets for two way chat
+The server thread manages incoming and outgoing queues using
+our A1 List library. 
+Threads communicate with the server
+using Send Receive and Reply
+Keyboard and UDP receiving use non blocking operations
+
+PSEUDOCODE:
+
+main():
+Validate ports and hostname
+Create and bind UDP socket
+Set keyboard and socket to non blocking
+Create five threads
+Restore blocking mode and clean up on exit
+
+
+KeyboardThread():
+Read input until Enter is pressed
+Attach numeric timestamp
+Send message to server
+Check for termination command
+
+
+ReceiveThread():
+Check for incoming UDP packets
+Receive and validate available messages
+Forward messages to server
+
+
+ScreenThread():
+Request incoming messages from server
+Display message and timestamp
+
+
+
+SendThread():
+Request outgoing messages from server
+Send them using UDP
+
+
+
+ServerThread():
+Create incoming and outgoing lists
+Receive requests from other threads
+Add or remove messages from the correct list
+Reply to requesting threads
+Coordinate termination
+
+
+
+CORRECTNESS:
+
+Only the server modifies the message queues, preventing
+concurrent list access. 
+Non blocking input and networking prevent one thread from 
+blocking the entire processes
