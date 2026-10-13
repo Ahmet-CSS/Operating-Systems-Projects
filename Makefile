@@ -22,7 +22,8 @@ CFLAGS = -std=gnu90 -Wall -Wextra -pedantic -g
 # /student/cmpt332/pthreads/lib/Linuxarmv7l).
 # Will ask TA some questions on this.
 
-CPPFLAGS = -I. -I/student/cmpt332/pthreads/ -I/student/cmpt332/rtt/include/
+CPPFLAGS = -I. -I/student/cmpt332/pthreads/ -I/student/cmpt332/rtt/include/ \
+		-I/usr/include/tirpc
 
 # Library paths for Linux x86_64
 RTT_LIB = -L/student/cmpt332/rtt/lib/Linuxx86_64
