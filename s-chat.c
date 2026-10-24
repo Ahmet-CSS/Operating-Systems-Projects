@@ -20,7 +20,19 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <os.h>
+#include <standards.h>
+#include <list.h>
 
 #define MIN_PORT 30001
 #define MAX_PORT 40000
@@ -51,8 +63,8 @@ int main(int argc, char *argv[]) {
 	char *end;
 	long localPort;
 	long remotePort;
-
-
+	int sockfd;
+	
 	if (argc != 4) {
 		fprintf(stderr, 
 		"Usage: %s <localPort> <remoteHost> <remotePort>\n",
@@ -89,8 +101,24 @@ int main(int argc, char *argv[]) {
 	printf("Remote port: %ld\n", remotePort);
 
 
-	/* Phase 2: initialize networking and create five threads */
+	/* Create a UDP socket */
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	
+	if (sockfd == -1) {
+		perror("socket");
+		return 1;
+	}
+	
+	printf("UDP socket created successefully\n");
+	
+	/* networking and thread setup */
+	if (close(sockfd) == -1) {
+		perror("close");
+		return 1;
+	}
 
+
+	
 	return 0;
 
 }
