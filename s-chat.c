@@ -64,7 +64,13 @@ int main(int argc, char *argv[]) {
 	long localPort;
 	long remotePort;
 	int sockfd;
+	struct sockaddr_in localAddr;
+	struct addrinfo hints;
+	struct addrinfo *remoteInfo;
+	char remotePortStr[16];
+	int result;
 	
+		
 	if (argc != 4) {
 		fprintf(stderr, 
 		"Usage: %s <localPort> <remoteHost> <remotePort>\n",
@@ -111,12 +117,53 @@ int main(int argc, char *argv[]) {
 	
 	printf("UDP socket created successefully\n");
 	
+	/* Configure the local UDP address */
+	memset(&localAddr, 0, sizeof(localAddr));
+
+	localAddr.sin_family = AF_INET;
+	localAddr.sin_port = htons((unsigned short)localPort);
+	localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	
+	/* Bind the socket to the local part */
+	if (bind(sockfd, (struct sockaddr *) &localAddr, 
+		sizeof(localAddr)) == -1) {
+		perror("bind");
+		close(sockfd);
+		return 1;
+	}
+
+	printf("UDP socket bound to port %ld\n", localPort);
+	
+	/* Convert the remote port to a string for getaddrinfo() */
+	snprintf(remotePortStr, sizeof(remotePortStr),"%ld", remotePort);
+
+	/* Configure hostname resolution for IPv4 UDP */
+	memset(&hints, 0, sizeof(hints));
+	
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	
+	/* resolve the remote hostname and port */
+	result = getaddrinfo(argv[2], remotePortStr, &hints, &remoteInfo);
+
+	if (result != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(result));
+		close(sockfd);
+		return 1;
+	}
+	
+	printf("Remote hostname resolved seccessfully\n");
+	
+	freeaddrinfo(remoteInfo);
+
 	/* networking and thread setup */
 	if (close(sockfd) == -1) {
 		perror("close");
 		return 1;
 	}
+	
 
+	
 
 	
 	return 0;
