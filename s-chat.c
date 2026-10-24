@@ -36,6 +36,13 @@
 
 #define MIN_PORT 30001
 #define MAX_PORT 40000
+#define THREAD_STACK 16384
+
+PID keyboardPid;
+PID receivePid;
+PID screenPid;
+PID sendPid;
+PID serverPid;
 
 /**
  * Thread functions
@@ -59,7 +66,7 @@ void ServerThread(void *arg);
  */
 
 
-int main(int argc, char *argv[]) {
+void mainp(int argc, char *argv[]) {
 	char *end;
 	long localPort;
 	long remotePort;
@@ -75,7 +82,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, 
 		"Usage: %s <localPort> <remoteHost> <remotePort>\n",
  		argv[0]);
-	return 1;
+	return;
 	}
 	
 
@@ -84,13 +91,13 @@ int main(int argc, char *argv[]) {
 	if (*argv[1] == '\0' || *end != '\0' || localPort < MIN_PORT ||
 	localPort > MAX_PORT) {
 		fprintf(stderr, "Error: invalid local port\n");
-		return 1;
+		return;
 	}
 
 
 	if (argv[2][0] == '\0') {
 		fprintf(stderr, "Error: Remote hostname cant be empty\n");
-		return 1;
+		return;
 	}
 
 
@@ -99,7 +106,7 @@ int main(int argc, char *argv[]) {
 	if (*argv[3] == '\0' || *end != '\0' ||
 		remotePort < MIN_PORT || remotePort > MAX_PORT) {
 		fprintf(stderr, "Error: invalid remote port\n");
-		return 1;	
+		return;	
 		}
 
 	printf("Local port: %ld\n", localPort);
@@ -112,7 +119,7 @@ int main(int argc, char *argv[]) {
 	
 	if (sockfd == -1) {
 		perror("socket");
-		return 1;
+		return;
 	}
 	
 	printf("UDP socket created successefully\n");
@@ -129,7 +136,7 @@ int main(int argc, char *argv[]) {
 		sizeof(localAddr)) == -1) {
 		perror("bind");
 		close(sockfd);
-		return 1;
+		return;
 	}
 
 	printf("UDP socket bound to port %ld\n", localPort);
@@ -149,24 +156,36 @@ int main(int argc, char *argv[]) {
 	if (result != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(result));
 		close(sockfd);
-		return 1;
+		return;
 	}
 	
 	printf("Remote hostname resolved seccessfully\n");
+	
+
+	/* Create the coordinating server first */
+	serverPid = Create((void (*)()) ServerThread, THREAD_STACK, 
+		"Server", NULL, NORM, SYS);
+
+	if (serverPid == PNUL) {
+		fprintf(stderr, "Error creating server thread\n");
+		freeaddrinfo(remoteInfo);
+		close(sockfd);
+		return;
+		}
 	
 	freeaddrinfo(remoteInfo);
 
 	/* networking and thread setup */
 	if (close(sockfd) == -1) {
 		perror("close");
-		return 1;
+		return;
 	}
 	
 
 	
 
 	
-	return 0;
+	return;
 
 }
 
