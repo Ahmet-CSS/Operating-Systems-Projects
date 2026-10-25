@@ -38,6 +38,14 @@
 #define MAX_PORT 40000
 #define THREAD_STACK 16384
 
+typedef struct {
+	int socketFd;
+	struct sockaddr_storage remoteAddr;
+	socklen_t remoteAddrLen;
+	} ChatConfig;
+static ChatConfig chatConfig;
+
+
 PID keyboardPid;
 PID receivePid;
 PID screenPid;
@@ -76,7 +84,7 @@ void mainp(int argc, char *argv[]) {
 	struct addrinfo *remoteInfo;
 	char remotePortStr[16];
 	int result;
-	
+	int socketFlags;
 		
 	if (argc != 4) {
 		fprintf(stderr, 
@@ -141,6 +149,25 @@ void mainp(int argc, char *argv[]) {
 
 	printf("UDP socket bound to port %ld\n", localPort);
 	
+	
+	/* get the socket's current flags */
+	socketFlags = fcntl(sockfd, F_GETFL, 0);
+	
+	if (socketFlags == -1) {
+		perror("fcntl F_GETFL");	
+		close(sockfd);
+		return;
+	}
+
+
+	/*enable non blocking UDP input */
+	if (fcntl(sockfd, F_SETFL, socketFlags | O_NONBLOCK) == -1) {
+		perror("fcntl F_SETFL");
+		close(sockfd);
+		return;
+	}
+
+
 	/* Convert the remote port to a string for getaddrinfo() */
 	snprintf(remotePortStr, sizeof(remotePortStr),"%ld", remotePort);
 
@@ -162,6 +189,14 @@ void mainp(int argc, char *argv[]) {
 	printf("Remote hostname resolved seccessfully\n");
 	
 
+ 	/* Save networking information for the worker thread */
+	chatConfig.socketFd = sockfd;
+	chatConfig.remoteAddrLen = remoteInfo->ai_addrlen;
+
+	memcpy(&chatConfig.remoteAddr, remoteInfo->ai_addr, 
+		remoteInfo->ai_addrlen);
+
+
 	/* Create the coordinating server first */
 	serverPid = Create((void (*)()) ServerThread, THREAD_STACK, 
 		"Server", NULL, NORM, SYS);
@@ -181,12 +216,12 @@ void mainp(int argc, char *argv[]) {
                 "Keyboard", NULL, NORM, USR);                                   
                                                                                 
         receivePid = Create((void(*)()) ReceiveThread, THREAD_STACK,            
-                "Receiver", NULL, NORM, USR);                                   
+                "Receiver", &chatConfig, NORM, USR);                                   
         screenPid = Create((void(*)()) ScreenThread, THREAD_STACK,              
                 "Screen", NULL, NORM, USR);                                     
                                                                                 
         sendPid = Create((void(*)()) SendThread, THREAD_STACK,                  
-                "Sender", NULL, NORM, USR);                                     
+                "Sender", &chatConfig, NORM, USR);                                     
                                                                                 
         if (keyboardPid == PNUL || receivePid == PNUL || screenPid == PNUL ||   
                 sendPid == PNUL) {                                              
@@ -214,7 +249,7 @@ void mainp(int argc, char *argv[]) {
 
 /*
  * Reads keybord input from user
- *
+ * 
  */
 void KeyboardThread(void *arg) {
 	(void)arg;
@@ -228,10 +263,49 @@ void KeyboardThread(void *arg) {
 
 /*
  * Receives incoming UDP messages.
- */
+ * rescfrom() checks whethe a UDP message has arrived
+ * if a message arrives it stores the data in buffer
+ * if no message EAGAIN or EWOULDBLOCK is expected
+ * Sched() alllows another UBC thread to execute
+ * other errors r reported using perror()  
+ *
+*/
 void ReceiveThread(void *arg) {
-	(void)arg;
-    /* TODO  Receive UDP packets. */
+	
+    ChatConfig *config = (ChatConfig *)arg;
+
+
+    char buffer[1024];
+    struct sockaddr_storage senderAddr;
+    socklen_t senderLen;
+    ssize_t bytesReceived;
+
+    for (;;) {
+        senderLen = sizeof(senderAddr);
+        bytesReceived = recvfrom( config->socketFd, buffer,
+            sizeof(buffer) - 1, 0, (struct sockaddr *)&senderAddr,&senderLen);
+
+        if (bytesReceived >= 0) {
+            buffer[bytesReceived] = '\0';
+            printf("Received: %s\n", buffer);
+
+            /* TODO: Forward message to ServerThread using Send() */
+
+        }
+
+        else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            perror("recvfrom");
+            break;
+
+        }
+
+        /* Let other UBC threads execute */
+        Sched();
+
+
+
+    }
+	
 }
 
 
