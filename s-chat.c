@@ -175,13 +175,33 @@ void mainp(int argc, char *argv[]) {
 	
 	freeaddrinfo(remoteInfo);
 
+
+	/* create four worker threads */                                        
+        keyboardPid = Create((void (*)()) KeyboardThread, THREAD_STACK,         
+                "Keyboard", NULL, NORM, USR);                                   
+                                                                                
+        receivePid = Create((void(*)()) ReceiveThread, THREAD_STACK,            
+                "Receiver", NULL, NORM, USR);                                   
+        screenPid = Create((void(*)()) ScreenThread, THREAD_STACK,              
+                "Screen", NULL, NORM, USR);                                     
+                                                                                
+        sendPid = Create((void(*)()) SendThread, THREAD_STACK,                  
+                "Sender", NULL, NORM, USR);                                     
+                                                                                
+        if (keyboardPid == PNUL || receivePid == PNUL || screenPid == PNUL ||   
+                sendPid == PNUL) {                                              
+                fprintf(stderr, "Error creating worker threads\n");             
+                return;                                                         
+        }                                                                       
+                                                                                
+        printf("all five UBC threads created successfully");  
+
+
 	/* networking and thread setup */
 	if (close(sockfd) == -1) {
 		perror("close");
 		return;
 	}
-	
-
 	
 
 	
