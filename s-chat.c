@@ -37,6 +37,26 @@
 #define MIN_PORT 30001
 #define MAX_PORT 40000
 #define THREAD_STACK 16384
+#define REQUEST_OUTGOING 1 /* SendThread request a message to transmit */
+#define REQUEST_INCOMING 2 /* ScreenThread request a message to display */
+#define ADD_OUTGOING 3 /* KeyboardThread adds a message */
+#define ADD_INCOMING 4 /* RecieveThread adds a received message */
+#define REQUEST_EXIT 5 /* a thread requests termination */
+#define MAX_MESSAGE 1024
+typedef struct {
+	char text[MAX_MESSAGE];
+	unsigned int seconds;
+	unsigned int microseconds;
+} ChatMessage;
+
+
+typedef struct {
+	int type;
+	ChatMessage message;
+} ChatRequest;
+
+
+
 
 typedef struct {
 	int socketFd;
@@ -324,11 +344,37 @@ void ScreenThread(void *arg) {
 
 
 /*
- * Sends outgoing UDP messages.
+ * Sends outgoing UDP messages
+ * sets the request type to REQUEST_OUTGOING
+ * it calls Send(serverPid, ....)
+ * The sending thread blocks until ServerThread() replies
+ * The reply will contain the next outgoing message
+ *
  */
 void SendThread(void *arg) {
-	(void)arg;
-    /* TODO Send UDP packets. */
+
+	ChatConfig *config = (ChatConfig *)arg;
+	ChatRequest request;
+	ChatMessage *message;
+	int length;
+	(void)config;
+
+	for(;;) {
+
+	/* Request the next outgoing message */
+	memset(&request, 0, sizeof(request));
+	request.type = REQUEST_OUTGOING;
+	length = sizeof(request);
+	message = (ChatMessage *)Send(serverPid, &request, &length);
+	if (message == NULL) {
+            fprintf(stderr, "SendThread: no server reply\n");
+            break;
+        }
+        /*
+         * Encode the message and timestamp
+         * Transmit the packet using sendto()
+         */
+    }
 }
 
 
@@ -337,6 +383,41 @@ void SendThread(void *arg) {
  * Coordinates the other four threads.
  */
 void ServerThread(void *arg) {
+	
+    /*  Manage message queues and synchronization */
+	LIST *incomingQueue;
+	LIST *outgoingQueue;
+	ChatRequest request;
+	PID senderPid;
+	int length;
+	int replyStatus;
 	(void)arg;
-    /* TODO  Manage message queues and synchronization. */
+
+	/* Create the incoming and outgoing message queues */
+	incomingQueue = ListCreate();
+	outgoingQueue = ListCreate();
+
+	if (incomingQueue == NULL || outgoingQueue == NULL) {
+		fprintf(stderr, "ServerThread: ListCreate failed\n");
+		return;
+	}
+	
+	printf("Server: message queues initialized \n");
+
+
+	for (;;) {
+		length = sizeof(request);
+		Receive(&senderPid, &length);
+	
+		/* TODO Read the received request and handle
+ 		* incoming outgoing message queues
+ 		*/
+		replyStatus = Reply(senderPid, NULL, 0);
+		
+		if (replyStatus < 0) {
+			fprintf(stderr, "ServerThread: Reply failed \n");
+		}
+	}
+
+ 
 }
