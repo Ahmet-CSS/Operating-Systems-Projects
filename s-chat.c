@@ -388,10 +388,14 @@ void ServerThread(void *arg) {
 	LIST *incomingQueue;
 	LIST *outgoingQueue;
 	ChatRequest request;
+	ChatRequest *receivedRequest;
+	ChatMessage *newMessage;
 	PID senderPid;
 	int length;
 	int replyStatus;
 	(void)arg;
+
+	  
 
 	/* Create the incoming and outgoing message queues */
 	incomingQueue = ListCreate();
@@ -406,16 +410,49 @@ void ServerThread(void *arg) {
 
 
 	for (;;) {
-		length = sizeof(request);
-		Receive(&senderPid, &length);
+		/*length = sizeof(request);
+		Receive(&senderPid, &length); */
+	length = 0;
+
+	receivedRequest = (ChatRequest *)Receive(&senderPid, &length);
 	
-		/* TODO Read the received request and handle
- 		* incoming outgoing message queues
- 		*/
-		replyStatus = Reply(senderPid, NULL, 0);
+	if (receivedRequest == NULL || length != sizeof(ChatRequest)) {
+		fprintf(stderr, "ServerThread: invalid request\n");
+		Reply(senderPid, NULL, 0);
+		continue;
+    }
+	request = *receivedRequest;
+	(void)request;
+	/* when a worker sends a message the server receives it */
+	if (request.type == ADD_OUTGOING || request.type == ADD_INCOMING) {
+		newMessage = (ChatMessage *)malloc(sizeof(ChatMessage));
+
+		if (newMessage == NULL) {
+			fprintf(stderr, "ServerThread: malloc failed\n");
+			Reply(sendPid, NULL, 0);
+			continue;
+	
+		}
+		/* the server checks whether it is incoming or outgoing */
+		*newMessage = request.message;
+		if (request.type == ADD_OUTGOING) {
+			if (ListAppend(outgoingQueue, newMessage) != 0) {
+				fprintf(stderr, "ServerThread: outgoing "
+					"queue\n");
+				free(newMessage);
+			}
+		} else {
+			if (ListAppend(incomingQueue, newMessage) != 0 ) {
+				fprintf(stderr, "ServerThread: incoming "
+					"queue full\n");
+				free(newMessage);
+			}
+		}
+	}
+	replyStatus = Reply(senderPid, NULL, 0);
 		
-		if (replyStatus < 0) {
-			fprintf(stderr, "ServerThread: Reply failed \n");
+	if (replyStatus < 0) {
+		fprintf(stderr, "ServerThread: Reply failed \n");
 		}
 	}
 
