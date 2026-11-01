@@ -82,11 +82,10 @@ int ListCount(LIST *list) {
  * Returns:     Pointer to the item, or NULL if empty/failure
  */
 void *ListFirst(LIST *list) {
-    	if (list == NULL) {
+    	if (list == NULL || list->head == NULL) {
         	printf("Error in procedure ListFirst: invalid parameter\n");
         	return NULL;
     }
-    	printf("Got to procedure ListFirst\n");
 
 
     	list->curr = list->head;

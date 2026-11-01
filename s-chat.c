@@ -390,6 +390,7 @@ void ServerThread(void *arg) {
 	ChatRequest request;
 	ChatRequest *receivedRequest;
 	ChatMessage *newMessage;
+	ChatMessage *queuedMessage;
 	PID senderPid;
 	int length;
 	int replyStatus;
@@ -422,7 +423,7 @@ void ServerThread(void *arg) {
 		continue;
     }
 	request = *receivedRequest;
-	(void)request;
+	
 	/* when a worker sends a message the server receives it */
 	if (request.type == ADD_OUTGOING || request.type == ADD_INCOMING) {
 		newMessage = (ChatMessage *)malloc(sizeof(ChatMessage));
@@ -449,7 +450,33 @@ void ServerThread(void *arg) {
 			}
 		}
 	}
-	replyStatus = Reply(senderPid, NULL, 0);
+	replyStatus = Reply(sendPid, NULL, 0);
+	
+	/* Retrieve the oldest message from the appropriate queue */
+        if(request.type==REQUEST_OUTGOING || request.type == REQUEST_INCOMING) 
+{
+            queuedMessage = NULL;
+            if (request.type == REQUEST_OUTGOING) {
+                if (ListCount(outgoingQueue) > 0) {
+                    ListFirst(outgoingQueue);
+                    queuedMessage =(ChatMessage *)ListRemove(outgoingQueue);
+                }
+
+            } else {
+
+                if (ListCount(incomingQueue) > 0) {
+                    ListFirst(incomingQueue);
+                    queuedMessage = (ChatMessage *)ListRemove(incomingQueue);
+                }
+
+            }
+
+            /*
+             * TODO: Deliver queuedMessage to the requesting thread
+             * handle empty queues without busy waiting
+             * free message memory after the worker finishes using it
+             */
+        }
 		
 	if (replyStatus < 0) {
 		fprintf(stderr, "ServerThread: Reply failed \n");
