@@ -1,14 +1,14 @@
-/*                                                                              
- * Emilio Montelongo Luna                                                       
- * 11317059                                                                     
- * rjq760                                                                       
- * CMPT 332 Fall-2026                                                           
- */                                                                             
-/*                                                                              
- Ahmet Guldadov                                                                 
- Student Number: 11369772                                                       
- NSID: six402                                                                   
- CMPT 332-Fall-2026                                                             
+/*
+ * Emilio Montelongo Luna
+ * 11317059
+ * rjq760
+ * CMPT 332 Fall-2026
+ */
+/*
+ Ahmet Guldadov
+ Student Number: 11369772
+ NSID: six402
+ CMPT 332-Fall-2026
 
  *  Assignment 2 Part C
  * Group 18 - Fall 2026
@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -105,17 +106,17 @@ void mainp(int argc, char *argv[]) {
 	char remotePortStr[16];
 	int result;
 	int socketFlags;
-		
+
 	if (argc != 4) {
-		fprintf(stderr, 
+		fprintf(stderr,
 		"Usage: %s <localPort> <remoteHost> <remotePort>\n",
  		argv[0]);
 	return;
 	}
-	
+
 
 	localPort = strtol(argv[1], &end, 10);
-	
+
 	if (*argv[1] == '\0' || *end != '\0' || localPort < MIN_PORT ||
 	localPort > MAX_PORT) {
 		fprintf(stderr, "Error: invalid local port\n");
@@ -130,11 +131,11 @@ void mainp(int argc, char *argv[]) {
 
 
 	remotePort = strtol(argv[3], &end, 10);
-	
+
 	if (*argv[3] == '\0' || *end != '\0' ||
 		remotePort < MIN_PORT || remotePort > MAX_PORT) {
 		fprintf(stderr, "Error: invalid remote port\n");
-		return;	
+		return;
 		}
 
 	printf("Local port: %ld\n", localPort);
@@ -144,23 +145,23 @@ void mainp(int argc, char *argv[]) {
 
 	/* Create a UDP socket */
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	
+
 	if (sockfd == -1) {
 		perror("socket");
 		return;
 	}
-	
+
 	printf("UDP socket created successefully\n");
-	
+
 	/* Configure the local UDP address */
 	memset(&localAddr, 0, sizeof(localAddr));
 
 	localAddr.sin_family = AF_INET;
 	localAddr.sin_port = htons((unsigned short)localPort);
 	localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	
+
 	/* Bind the socket to the local part */
-	if (bind(sockfd, (struct sockaddr *) &localAddr, 
+	if (bind(sockfd, (struct sockaddr *) &localAddr,
 		sizeof(localAddr)) == -1) {
 		perror("bind");
 		close(sockfd);
@@ -168,13 +169,13 @@ void mainp(int argc, char *argv[]) {
 	}
 
 	printf("UDP socket bound to port %ld\n", localPort);
-	
-	
+
+
 	/* get the socket's current flags */
 	socketFlags = fcntl(sockfd, F_GETFL, 0);
-	
+
 	if (socketFlags == -1) {
-		perror("fcntl F_GETFL");	
+		perror("fcntl F_GETFL");
 		close(sockfd);
 		return;
 	}
@@ -193,10 +194,10 @@ void mainp(int argc, char *argv[]) {
 
 	/* Configure hostname resolution for IPv4 UDP */
 	memset(&hints, 0, sizeof(hints));
-	
+
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_DGRAM;
-	
+
 	/* resolve the remote hostname and port */
 	result = getaddrinfo(argv[2], remotePortStr, &hints, &remoteInfo);
 
@@ -205,20 +206,20 @@ void mainp(int argc, char *argv[]) {
 		close(sockfd);
 		return;
 	}
-	
+
 	printf("Remote hostname resolved seccessfully\n");
-	
+
 
  	/* Save networking information for the worker thread */
 	chatConfig.socketFd = sockfd;
 	chatConfig.remoteAddrLen = remoteInfo->ai_addrlen;
 
-	memcpy(&chatConfig.remoteAddr, remoteInfo->ai_addr, 
+	memcpy(&chatConfig.remoteAddr, remoteInfo->ai_addr,
 		remoteInfo->ai_addrlen);
 
 
 	/* Create the coordinating server first */
-	serverPid = Create((void (*)()) ServerThread, THREAD_STACK, 
+	serverPid = Create((void (*)()) ServerThread, THREAD_STACK,
 		"Server", NULL, NORM, SYS);
 
 	if (serverPid == PNUL) {
@@ -227,29 +228,29 @@ void mainp(int argc, char *argv[]) {
 		close(sockfd);
 		return;
 		}
-	
+
 	freeaddrinfo(remoteInfo);
 
 
-	/* create four worker threads */                                        
-        keyboardPid = Create((void (*)()) KeyboardThread, THREAD_STACK,         
-                "Keyboard", NULL, NORM, USR);                                   
-                                                                                
-        receivePid = Create((void(*)()) ReceiveThread, THREAD_STACK,            
-                "Receiver", &chatConfig, NORM, USR);                                   
-        screenPid = Create((void(*)()) ScreenThread, THREAD_STACK,              
-                "Screen", NULL, NORM, USR);                                     
-                                                                                
-        sendPid = Create((void(*)()) SendThread, THREAD_STACK,                  
-                "Sender", &chatConfig, NORM, USR);                                     
-                                                                                
-        if (keyboardPid == PNUL || receivePid == PNUL || screenPid == PNUL ||   
-                sendPid == PNUL) {                                              
-                fprintf(stderr, "Error creating worker threads\n");             
-                return;                                                         
-        }                                                                       
-                                                                                
-        printf("all five UBC threads created successfully");  
+	/* create four worker threads */
+        keyboardPid = Create((void (*)()) KeyboardThread, THREAD_STACK,
+                "Keyboard", NULL, NORM, USR);
+
+        receivePid = Create((void(*)()) ReceiveThread, THREAD_STACK,
+                "Receiver", &chatConfig, NORM, USR);
+        screenPid = Create((void(*)()) ScreenThread, THREAD_STACK,
+                "Screen", NULL, NORM, USR);
+
+        sendPid = Create((void(*)()) SendThread, THREAD_STACK,
+                "Sender", &chatConfig, NORM, USR);
+
+        if (keyboardPid == PNUL || receivePid == PNUL || screenPid == PNUL ||
+                sendPid == PNUL) {
+                fprintf(stderr, "Error creating worker threads\n");
+                return;
+        }
+
+        printf("all five UBC threads created successfully");
 
 
 	/* networking and thread setup */
@@ -257,9 +258,9 @@ void mainp(int argc, char *argv[]) {
 		perror("close");
 		return;
 	}
-	
 
-	
+
+
 	return;
 
 }
@@ -269,7 +270,7 @@ void mainp(int argc, char *argv[]) {
 
 /*
  * Reads keybord input from user
- * 
+ *
  */
 void KeyboardThread(void *arg) {
 	ChatRequest request;
@@ -280,10 +281,10 @@ void KeyboardThread(void *arg) {
 	int flags;
 	int result;
   	(void)arg;
-	
+
 	/* save the original keyboard settings */
 	flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-	
+
 	if(flags == -1) {
 		perror("KeyboardThread: fcntl");
 		return;
@@ -293,32 +294,32 @@ void KeyboardThread(void *arg) {
 		perror("KeyboardThread: O_NONBLOCK");
 		return;
 	}
-	
+
 	/*Read keyboard input and build complete lines */
 	inputLength = 0;
 	for(;;) {
 		char ch;
 		ssize_t bytesRead;
-		
+
 		bytesRead = read(STDIN_FILENO, &ch, 1);
  		if (bytesRead == 1) {
-		
+
 		/* a complete message has been entered */
 		if (ch == '\n') {
 			input[inputLength] = '\0';
-			
+
 			/* record the time when the message was entered */
 			if(gettimeofday(&timestamp, NULL) == -1) {
 				perror("KeyboardThread: gettimeofday");
 				break;
 			}
-		
+
 
 		/* Prepare the request for ServerThread */
 		memset(&request, 0, sizeof(request));
 		request.type = ADD_OUTGOING;
 		strncpy(request.message.text, input, MAX_MESSAGE - 1);
-		
+
 		request.message.seconds = (unsigned int)timestamp.tv_sec;
 		request.message.microseconds = (unsigned int)timestamp.tv_usec;
 
@@ -328,13 +329,13 @@ void KeyboardThread(void *arg) {
 		/* prepare for next message */
 		inputLength = 0;
 		} else if (inputLength < MAX_MESSAGE - 1) {
-		
+
 			input[inputLength] = ch;
 			inputLength++;
 		} else if (bytesRead == 0) {
 		/* end of input */
 			break;
-		} else if (errno == EAGAIN || errno == EWOULDBLOCK || 
+		} else if (errno == EAGAIN || errno == EWOULDBLOCK ||
 		errno == EINTR ) {
 		/* no input available, let other UBC threads run */
 		Sched();
@@ -342,15 +343,15 @@ void KeyboardThread(void *arg) {
 		perror("KeyboardThread: read");
 		break;
 		}
-	
+
 	}
 	}
 	/* TODO: Record the timestamp using gettimeofday() */
 	/* TODO: Send ADD_OUTGOING requests to ServerThread */
 	/* TODO: restore original keyboard flags before exiting */
-	
+
 	result = fcntl(STDIN_FILENO, F_SETFL, flags);
-	
+
 	if(result == -1) {
 	perror("KeyboardThread: restore flags");
 	}
@@ -368,45 +369,80 @@ void KeyboardThread(void *arg) {
  * if a message arrives it stores the data in buffer
  * if no message EAGAIN or EWOULDBLOCK is expected
  * Sched() alllows another UBC thread to execute
- * other errors r reported using perror()  
+ * other errors r reported using perror()
  *
 */
 void ReceiveThread(void *arg) {
-	
+
     ChatConfig *config = (ChatConfig *)arg;
-
-
-    char buffer[1024];
+    ChatRequest request;
+    unsigned char buffer[12 + MAX_MESSAGE];
+    uint64_t seconds;
+    uint32_t microseconds;
+    ssize_t bytesReceived;
+    size_t textLength;
+    int length;
+    int i;
     struct sockaddr_storage senderAddr;
     socklen_t senderLen;
-    ssize_t bytesReceived;
-
     for (;;) {
         senderLen = sizeof(senderAddr);
         bytesReceived = recvfrom( config->socketFd, buffer,
-            sizeof(buffer) - 1, 0, (struct sockaddr *)&senderAddr,&senderLen);
+            sizeof(buffer), 0, (struct sockaddr *)&senderAddr,&senderLen);
 
-        if (bytesReceived >= 0) {
-            buffer[bytesReceived] = '\0';
-            printf("Received: %s\n", buffer);
-
-            /* TODO: Forward message to ServerThread using Send() */
-
-        }
-
-        else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            perror("recvfrom");
-            break;
-
-        }
-
-        /* Let other UBC threads execute */
-        Sched();
-
-
+        if (bytesReceived < 0) {
+		if (errno != EAGAIN ||  errno != EWOULDBLOCK ||
+			errno == EINTR) {
+		Sched();
+		continue;
+		}
+		perror("ReceiveThread: recvfrom");
+		break;
+		}
+	if (bytesReceived < 12 ) {
+		fprintf(stderr, "ReceiveThread: invlaid packet\n");
+		continue;
+		}
+	/* decode the 8 byte timestamp in network byte order */
+		seconds = 0;
+		for (i = 0; i < 8; i++) {
+        	seconds = (seconds << 8) | (unsigned char)buffer[i];
 
     }
-	
+    /* Decode the 4 byte microseconds field */
+    microseconds = 0;
+    for (i = 8; i < 12; i++) {
+        microseconds = (microseconds << 8) |(unsigned char)buffer[i];
+    }
+
+    if (microseconds >= 1000000) {
+        fprintf(stderr, "ReceiveThread: invalid timestamp\n");
+        continue;
+
+    }
+
+    /* Extract the message text*/
+    textLength = (size_t)bytesReceived - 12;
+    if (textLength >= MAX_MESSAGE) {
+        fprintf(stderr, "ReceiveThread: message too long\n");
+
+        continue;
+    }
+
+    memset(&request, 0, sizeof(request));
+    request.type = ADD_INCOMING;
+    memcpy(request.message.text, buffer + 12, textLength);
+    request.message.text[textLength] = '\0';
+    request.message.seconds = (unsigned int)seconds;
+    request.message.microseconds = microseconds;
+    /* forward the message to ServerThread using UBC IPC */
+    length = sizeof(request);
+    Send(serverPid, &request, &length);
+    /* allow other UBC threads to execute */
+    Sched();
+
+    }
+
 }
 
 
@@ -420,32 +456,32 @@ void ScreenThread(void *arg) {
 	ChatMessage *message;
 	int length;
 	(void)arg;
-		
+
 
 	for(;;) {
 		/*request the oldest incoming message */
-		
+
 		memset(&request, 0, sizeof(request));
 		request.type = REQUEST_INCOMING;
-		
+
 		length = sizeof(request);
-	
+
 		message = (ChatMessage*)Send(serverPid, &request, &length);
-		
+
 		if (message == NULL) {
 			fprintf(stderr, "ScreenThread: no server reply\n");
 			break;
 		}
-	
+
 		/* Display the sender's timestamp and message */
-		printf("[%u.%06u] %s\n", message->seconds, 
+		printf("[%u.%06u] %s\n", message->seconds,
 			message->microseconds, message->text);
 		fflush(stdout);
-		
+
 		/* server transferred ownership of this message */
 		free(message);
-	} 
-    
+	}
+
 }
 
 
@@ -466,7 +502,16 @@ void SendThread(void *arg) {
 	ChatRequest request;
 	ChatMessage *message;
 	int length;
+	unsigned char packet[12 + MAX_MESSAGE];
+	uint64_t seconds;
+	unsigned int microseconds;
+	size_t textLength;
+	size_t packetLength;
+	ssize_t bytesSent;
+	int i;
+
 	(void)config;
+
 
 	for(;;) {
 
@@ -483,6 +528,46 @@ void SendThread(void *arg) {
          * Encode the message and timestamp
          * Transmit the packet using sendto()
          */
+	seconds = (uint64_t)message->seconds;
+
+	for (i = 7; i >= 0; i--) {
+		packet[i] = (unsigned char)(seconds & 0xFF);
+    		seconds  = seconds >= 8;
+	}
+	/* encode microseconds as 4 bytes in network byte order */
+	microseconds = message->microseconds;
+	for (i = 11; i >= 8; i--) {
+
+		packet[i] = (unsigned char)(microseconds & 0xFF);
+		microseconds  = microseconds >= 8;
+
+	}
+	/* copy the message text after the timestamp */
+	textLength = strlen(message->text);
+	memcpy(packet + 12, message->text, textLength);
+	packetLength = 12 + textLength;
+
+	/* send the encoded message to the remote computer */
+	for (;;) {
+
+		bytesSent = sendto(config->socketFd, packet, packetLength, 0,
+			(struct sockaddr*)&config->remoteAddr,
+			config->remoteAddrLen);
+
+	if (bytesSent >= 0) {
+		break;
+	}
+
+	if (errno == EAGAIN || errno == EWOULDBLOCK ) {
+		/* non blocking socket retry later */
+		Sched();
+		continue;
+		}
+		perror("SendThread: sendto");
+		break;
+
+	}
+	free(message);
     }
 }
 
@@ -492,7 +577,7 @@ void SendThread(void *arg) {
  * Coordinates the other four threads.
  */
 void ServerThread(void *arg) {
-	
+
     /*  Manage message queues and synchronization */
 	LIST *incomingQueue;
 	LIST *outgoingQueue;
@@ -509,7 +594,7 @@ void ServerThread(void *arg) {
 	(void)arg;
 	waitingSender = PNUL;
 	waitingScreen = PNUL;
-	  
+
 
 	/* Create the incoming and outgoing message queues */
 	incomingQueue = ListCreate();
@@ -519,7 +604,7 @@ void ServerThread(void *arg) {
 		fprintf(stderr, "ServerThread: ListCreate failed\n");
 		return;
 	}
-	
+
 	printf("Server: message queues initialized \n");
 
 
@@ -529,14 +614,14 @@ void ServerThread(void *arg) {
 	length = 0;
 
 	receivedRequest = (ChatRequest *)Receive(&senderPid, &length);
-	
+
 	if (receivedRequest == NULL || length != sizeof(ChatRequest)) {
 		fprintf(stderr, "ServerThread: invalid request\n");
 		Reply(senderPid, NULL, 0);
 		continue;
     }
 	request = *receivedRequest;
-	
+
 	/* when a worker sends a message the server receives it */
 	if (request.type == ADD_OUTGOING || request.type == ADD_INCOMING) {
 		newMessage = (ChatMessage *)malloc(sizeof(ChatMessage));
@@ -545,7 +630,7 @@ void ServerThread(void *arg) {
 			fprintf(stderr, "ServerThread: malloc failed\n");
 			Reply(sendPid, NULL, 0);
 			continue;
-	
+
 		}
 		/* the server checks whether it is incoming or outgoing */
 		*newMessage = request.message;
@@ -554,27 +639,27 @@ void ServerThread(void *arg) {
 				fprintf(stderr, "ServerThread: outgoing "
 					"queue\n");
 				free(newMessage);
-		
+
 			} else if (waitingSender != PNUL) {
 		/* sender is waiting for an outgoing message
  		* remove the oldest messages and wake the sender
  		*/
 		ListFirst(outgoingQueue);
 		queuedMessage = (ChatMessage*)ListRemove(outgoingQueue);
-		
+
 		delivered = Reply(waitingSender, queuedMessage,
 			sizeof(ChatMessage));
 		if (delivered != 0) {
 			fprintf(stderr, "ServerThread: sender reply failed\n");
 			/* TODO: recover undelivered message */
 		}
-		
+
 		waitingSender = PNUL;
-		
+
 		/* TODO: Free queueMessage safely after
  		* the sender has finished using it
  		*/
-		
+
 		}
 
 		} else {
@@ -587,7 +672,7 @@ void ServerThread(void *arg) {
 		/* wake the screen thread with the oldest message */
 		ListFirst(incomingQueue);
 		queuedMessage = (ChatMessage*)ListRemove(incomingQueue);
-		
+
 		delivered = Reply(waitingScreen, queuedMessage,
 		sizeof(ChatMessage));
 		if(delivered != 0) {
@@ -598,10 +683,10 @@ void ServerThread(void *arg) {
 	}
 	}
 	replyStatus = Reply(sendPid, NULL, 0);
-	
+
 	/* Retrieve the oldest message from the appropriate queue */
-        if(request.type==REQUEST_OUTGOING || request.type == REQUEST_INCOMING) 
-{ 
+        if(request.type==REQUEST_OUTGOING || request.type == REQUEST_INCOMING)
+{
             queuedMessage = NULL;
             if (request.type == REQUEST_OUTGOING) {
                 if (ListCount(outgoingQueue) > 0) {
@@ -624,50 +709,50 @@ void ServerThread(void *arg) {
              * free message memory after the worker finishes using it
              */
         }
-	
-	  /* remember workers waiting for messages */                             
-        if (request.type == REQUEST_OUTGOING) {                                 
-                if(ListCount(outgoingQueue) == 0) {                             
-                        waitingSender = senderPid;                              
-                        continue;                                               
-                } 
+
+	  /* remember workers waiting for messages */
+        if (request.type == REQUEST_OUTGOING) {
+                if(ListCount(outgoingQueue) == 0) {
+                        waitingSender = senderPid;
+                        continue;
+                }
 		/* retrieve the oldest outgoing message */
 		ListFirst(outgoingQueue);
 		queuedMessage = (ChatMessage*)ListRemove(outgoingQueue);
-		
+
 		/* deliver it to SendThread */
-		replyStatus = Reply(senderPid, queuedMessage, 
+		replyStatus = Reply(senderPid, queuedMessage,
 		sizeof(ChatMessage));
-	
+
 		if(replyStatus != 0) {
 		fprintf(stderr, "ServerThread outgoing reply failed\n");
-		free(queuedMessage);            
+		free(queuedMessage);
 	  }
 		continue;
 	}
-	
-	  /* remember workers waiting for messages */                             
-        if (request.type == REQUEST_INCOMING) {                                 
-                if(ListCount(incomingQueue) == 0) {                             
-                        waitingScreen = senderPid;                              
-                        continue;                                               
-                } 
+
+	  /* remember workers waiting for messages */
+        if (request.type == REQUEST_INCOMING) {
+                if(ListCount(incomingQueue) == 0) {
+                        waitingScreen = senderPid;
+                        continue;
+                }
 		ListFirst(incomingQueue);
 		queuedMessage = (ChatMessage*)ListRemove(incomingQueue);
-		replyStatus = Reply(senderPid, queuedMessage, 
-		sizeof(ChatMessage));	
-		
+		replyStatus = Reply(senderPid, queuedMessage,
+		sizeof(ChatMessage));
+
 		if(replyStatus != 0) {
 		fprintf(stderr, "ServerThread: incoming reply failed\n");
 		free(queuedMessage);
 	}
 	continue;
-	} 
-		
+	}
+
 	if (replyStatus < 0) {
 		fprintf(stderr, "ServerThread: Reply failed \n");
 		}
 	}
 
-} 
+}
 }
