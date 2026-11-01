@@ -72,6 +72,7 @@ PID receivePid;
 PID screenPid;
 PID sendPid;
 PID serverPid;
+static int chatShuttingDown = 0;
 
 /**
  * Thread functions
@@ -225,7 +226,9 @@ void mainp(int argc, char *argv[]) {
 	if (serverPid == PNUL) {
 		fprintf(stderr, "Error creating server thread\n");
 		freeaddrinfo(remoteInfo);
-		close(sockfd);
+		/* TODO close socket after all chat threads have stopped */
+	
+		/*close(sockfd);*/
 		return;
 		}
 
@@ -251,13 +254,6 @@ void mainp(int argc, char *argv[]) {
         }
 
         printf("all five UBC threads created successfully");
-
-
-	/* networking and thread setup */
-	if (close(sockfd) == -1) {
-		perror("close");
-		return;
-	}
 
 
 
@@ -307,12 +303,23 @@ void KeyboardThread(void *arg) {
 		/* a complete message has been entered */
 		if (ch == '\n') {
 			input[inputLength] = '\0';
+			if(strcmp(input, "/quit")  == 0){
+				printf("Chat shutdown requested\n");
+				
+				memset(&request, 0, sizeof(request));
+				request.type = REQUEST_EXIT;
+				length = sizeof(request);
+				Send(serverPid, &request, &length);
+				break;
+			}
+			
 
 			/* record the time when the message was entered */
 			if(gettimeofday(&timestamp, NULL) == -1) {
 				perror("KeyboardThread: gettimeofday");
 				break;
 			}
+
 
 
 		/* Prepare the request for ServerThread */
@@ -385,10 +392,20 @@ void ReceiveThread(void *arg) {
     int i;
     struct sockaddr_storage senderAddr;
     socklen_t senderLen;
+
+
+
     for (;;) {
-        senderLen = sizeof(senderAddr);
+       
+
+	if (chatShuttingDown) {
+		break;
+	}
+	senderLen = sizeof(senderAddr); 
         bytesReceived = recvfrom( config->socketFd, buffer,
-            sizeof(buffer), 0, (struct sockaddr *)&senderAddr,&senderLen);
+
+        sizeof(buffer), 0, (struct sockaddr *)&senderAddr,&senderLen);
+
 
         if (bytesReceived < 0) {
 		if (errno != EAGAIN ||  errno != EWOULDBLOCK ||
@@ -459,6 +476,12 @@ void ScreenThread(void *arg) {
 
 
 	for(;;) {
+		
+		if (chatShuttingDown)	{
+			break;
+			}
+
+
 		/*request the oldest incoming message */
 
 		memset(&request, 0, sizeof(request));
@@ -514,6 +537,10 @@ void SendThread(void *arg) {
 
 
 	for(;;) {
+
+	if (chatShuttingDown) {	
+		break;
+	}
 
 	/* Request the next outgoing message */
 	memset(&request, 0, sizeof(request));
@@ -621,6 +648,42 @@ void ServerThread(void *arg) {
 		continue;
     }
 	request = *receivedRequest;
+		
+	if (request.type == REQUEST_EXIT) {
+		chatShuttingDown = 1;
+		printf("ServerThread: shutting down\n");
+		
+		replyStatus = Reply(senderPid, NULL, 0);
+		if (replyStatus != 0) {
+			fprintf(stderr, "ServerThread: exit reply failed\n");
+		}
+		continue;
+		
+		
+	chatShuttingDown = 1;
+	
+	/* wake SendThread if it is waiting for an outgoing message */
+	if (waitingSender != PNUL) {
+		Reply(waitingSender, NULL, 0);
+		waitingSender = PNUL;
+		}
+	/* wake ScreenThread if it is waiting for an incoming message */
+	if (waitingScreen != PNUL) {
+		Reply(waitingScreen, NULL, 0);
+		waitingScreen = PNUL;
+	}
+	
+	printf("ServerThread: shutting down\n");
+	
+	replyStatus = Reply(senderPid, NULL, 0);
+	if (replyStatus != 0 ) {
+		fprintf(stderr, "ServerThread: exit reply failed\n");
+	}
+	continue;
+	}
+
+
+	
 
 	/* when a worker sends a message the server receives it */
 	if (request.type == ADD_OUTGOING || request.type == ADD_INCOMING) {
@@ -628,7 +691,7 @@ void ServerThread(void *arg) {
 
 		if (newMessage == NULL) {
 			fprintf(stderr, "ServerThread: malloc failed\n");
-			Reply(sendPid, NULL, 0);
+			Reply(senderPid, NULL, 0);
 			continue;
 
 		}
@@ -682,33 +745,8 @@ void ServerThread(void *arg) {
 		waitingScreen = PNUL;
 	}
 	}
-	replyStatus = Reply(sendPid, NULL, 0);
+	replyStatus = Reply(senderPid, NULL, 0);
 
-	/* Retrieve the oldest message from the appropriate queue */
-        if(request.type==REQUEST_OUTGOING || request.type == REQUEST_INCOMING)
-{
-            queuedMessage = NULL;
-            if (request.type == REQUEST_OUTGOING) {
-                if (ListCount(outgoingQueue) > 0) {
-                    ListFirst(outgoingQueue);
-                    queuedMessage =(ChatMessage *)ListRemove(outgoingQueue);
-                }
-
-            } else {
-
-                if (ListCount(incomingQueue) > 0) {
-                    ListFirst(incomingQueue);
-                    queuedMessage = (ChatMessage *)ListRemove(incomingQueue);
-                }
-
-            }
-
-            /*
-             * TODO: Deliver queuedMessage to the requesting thread
-             * handle empty queues without busy waiting
-             * free message memory after the worker finishes using it
-             */
-        }
 
 	  /* remember workers waiting for messages */
         if (request.type == REQUEST_OUTGOING) {
