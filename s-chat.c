@@ -392,10 +392,14 @@ void ServerThread(void *arg) {
 	ChatMessage *newMessage;
 	ChatMessage *queuedMessage;
 	PID senderPid;
+	PID waitingSender;
+	PID waitingScreen;
 	int length;
 	int replyStatus;
+	int delivered;
 	(void)arg;
-
+	waitingSender = PNUL;
+	waitingScreen = PNUL;
 	  
 
 	/* Create the incoming and outgoing message queues */
@@ -441,20 +445,54 @@ void ServerThread(void *arg) {
 				fprintf(stderr, "ServerThread: outgoing "
 					"queue\n");
 				free(newMessage);
-			}
+		
+			} else if (waitingSender != PNUL) {
+		/* sender is waiting for an outgoing message
+ 		* remove the oldest messages and wake the sender
+ 		*/
+		ListFirst(outgoingQueue);
+		queuedMessage = (ChatMessage*)ListRemove(outgoingQueue);
+		
+		delivered = Reply(waitingSender, queuedMessage,
+			sizeof(ChatMessage));
+		if (delivered != 0) {
+			fprintf(stderr, "ServerThread: sender reply failed\n");
+			/* TODO: recover undelivered message */
+		}
+		
+		waitingSender = PNUL;
+		
+		/* TODO: Free queueMessage safely after
+ 		* the sender has finished using it
+ 		*/
+		
+		}
+
 		} else {
 			if (ListAppend(incomingQueue, newMessage) != 0 ) {
 				fprintf(stderr, "ServerThread: incoming "
 					"queue full\n");
 				free(newMessage);
 			}
+		else if (waitingScreen != PNUL) {
+		/* wake the screen thread with the oldest message */
+		ListFirst(incomingQueue);
+		queuedMessage = (ChatMessage*)ListRemove(incomingQueue);
+		
+		delivered = Reply(waitingScreen, queuedMessage,
+		sizeof(ChatMessage));
+		if(delivered != 0) {
+			fprintf(stderr, "ServerThread: screen reply failed\n");
+		free(queuedMessage);
 		}
+		waitingScreen = PNUL;
+	}
 	}
 	replyStatus = Reply(sendPid, NULL, 0);
 	
 	/* Retrieve the oldest message from the appropriate queue */
         if(request.type==REQUEST_OUTGOING || request.type == REQUEST_INCOMING) 
-{
+{ 
             queuedMessage = NULL;
             if (request.type == REQUEST_OUTGOING) {
                 if (ListCount(outgoingQueue) > 0) {
@@ -477,11 +515,50 @@ void ServerThread(void *arg) {
              * free message memory after the worker finishes using it
              */
         }
+	
+	  /* remember workers waiting for messages */                             
+        if (request.type == REQUEST_OUTGOING) {                                 
+                if(ListCount(outgoingQueue) == 0) {                             
+                        waitingSender = senderPid;                              
+                        continue;                                               
+                } 
+		/* retrieve the oldest outgoing message */
+		ListFirst(outgoingQueue);
+		queuedMessage = (ChatMessage*)ListRemove(outgoingQueue);
+		
+		/* deliver it to SendThread */
+		replyStatus = Reply(senderPid, queuedMessage, 
+		sizeof(ChatMessage));
+	
+		if(replyStatus != 0) {
+		fprintf(stderr, "ServerThread outgoing reply failed\n");
+		free(queuedMessage);            
+	  }
+		continue;
+	}
+	
+	  /* remember workers waiting for messages */                             
+        if (request.type == REQUEST_INCOMING) {                                 
+                if(ListCount(incomingQueue) == 0) {                             
+                        waitingScreen = senderPid;                              
+                        continue;                                               
+                } 
+		ListFirst(incomingQueue);
+		queuedMessage = (ChatMessage*)ListRemove(incomingQueue);
+		replyStatus = Reply(senderPid, queuedMessage, 
+		sizeof(ChatMessage));	
+		
+		if(replyStatus != 0) {
+		fprintf(stderr, "ServerThread: incoming reply failed\n");
+		free(queuedMessage);
+	}
+	continue;
+	} 
 		
 	if (replyStatus < 0) {
 		fprintf(stderr, "ServerThread: Reply failed \n");
 		}
 	}
 
- 
+} 
 }
