@@ -44,6 +44,10 @@
 #define ADD_INCOMING 4 /* RecieveThread adds a received message */
 #define REQUEST_EXIT 5 /* a thread requests termination */
 #define MAX_MESSAGE 1024
+#define REQUEST_EXIT 5 /* thread request termination */
+#define REQUEST_WORKER_DONE 6 /* worker has finished cleanup */
+
+
 typedef struct {
 	char text[MAX_MESSAGE];
 	unsigned int seconds;
@@ -96,6 +100,11 @@ void ServerThread(void *arg);
  */
 
 
+/*
+ * TODO : Test two chat instances using different ports
+ * Verify bidirectional UDP communication and message ordering
+ * Test invalid arguments, invalid ports, and hostname errors
+ */
 void mainp(int argc, char *argv[]) {
 	char *end;
 	long localPort;
@@ -226,8 +235,7 @@ void mainp(int argc, char *argv[]) {
 	if (serverPid == PNUL) {
 		fprintf(stderr, "Error creating server thread\n");
 		freeaddrinfo(remoteInfo);
-		/* TODO close socket after all chat threads have stopped */
-	
+
 		/*close(sockfd);*/
 		return;
 		}
@@ -311,7 +319,8 @@ void KeyboardThread(void *arg) {
 				length = sizeof(request);
 				Send(serverPid, &request, &length);
 				break;
-			}
+			} 
+
 			
 
 			/* record the time when the message was entered */
@@ -339,6 +348,7 @@ void KeyboardThread(void *arg) {
 
 			input[inputLength] = ch;
 			inputLength++;
+		}
 		} else if (bytesRead == 0) {
 		/* end of input */
 			break;
@@ -352,16 +362,18 @@ void KeyboardThread(void *arg) {
 		}
 
 	}
-	}
-	/* TODO: Record the timestamp using gettimeofday() */
-	/* TODO: Send ADD_OUTGOING requests to ServerThread */
-	/* TODO: restore original keyboard flags before exiting */
-
+	
 	result = fcntl(STDIN_FILENO, F_SETFL, flags);
 
 	if(result == -1) {
 	perror("KeyboardThread: restore flags");
 	}
+	
+	/* Notify ServerThread that keyboard cleanup is complete */
+	memset(&request, 0, sizeof(request));
+	request.type = REQUEST_WORKER_DONE;
+	length = sizeof(request);
+	Send(serverPid, &request, &length);
 
 
 
@@ -379,6 +391,11 @@ void KeyboardThread(void *arg) {
  * other errors r reported using perror()
  *
 */
+
+/*
+ * TODO: Test malformed UDP packets, invalid timestamps
+ * oversized messages and nonblocking socket behavior
+ */
 void ReceiveThread(void *arg) {
 
     ChatConfig *config = (ChatConfig *)arg;
@@ -408,7 +425,7 @@ void ReceiveThread(void *arg) {
 
 
         if (bytesReceived < 0) {
-		if (errno != EAGAIN ||  errno != EWOULDBLOCK ||
+		if (errno != EAGAIN ||  errno == EWOULDBLOCK ||
 			errno == EINTR) {
 		Sched();
 		continue;
@@ -459,6 +476,11 @@ void ReceiveThread(void *arg) {
     Sched();
 
     }
+	/* notify server that receiver has stopped */
+	memset(&request, 0, sizeof(request));
+	request.type = REQUEST_WORKER_DONE;
+	length = sizeof(request);
+	Send(serverPid, &request, &length);
 
 }
 
@@ -504,6 +526,12 @@ void ScreenThread(void *arg) {
 		/* server transferred ownership of this message */
 		free(message);
 	}
+	/* notify ServerThread that screen thread has stopped */
+	memset(&request, 0, sizeof(request));
+	request.type = REQUEST_WORKER_DONE;
+	length = sizeof(request);
+	
+	Send(serverPid, &request, &length);
 
 }
 
@@ -559,14 +587,14 @@ void SendThread(void *arg) {
 
 	for (i = 7; i >= 0; i--) {
 		packet[i] = (unsigned char)(seconds & 0xFF);
-    		seconds  = seconds >= 8;
+    		seconds  = seconds >> 8;
 	}
 	/* encode microseconds as 4 bytes in network byte order */
 	microseconds = message->microseconds;
 	for (i = 11; i >= 8; i--) {
 
 		packet[i] = (unsigned char)(microseconds & 0xFF);
-		microseconds  = microseconds >= 8;
+		microseconds  = microseconds >> 8;
 
 	}
 	/* copy the message text after the timestamp */
@@ -596,12 +624,19 @@ void SendThread(void *arg) {
 	}
 	free(message);
     }
+	/* Notify ServerThread that sender has stopped */
+	memset(&request, 0, sizeof(request));
+	request.type = REQUEST_WORKER_DONE;
+	length = sizeof(request);
+	Send(serverPid, &request, &length);
 }
 
 
 
 /*
- * Coordinates the other four threads.
+ * TODO: Debug shutdown syncronization
+ * Verify that all four workers report REQUEST_WORKER_DONE
+ * before the server realeases the queues and closes the socket
  */
 void ServerThread(void *arg) {
 
@@ -618,9 +653,11 @@ void ServerThread(void *arg) {
 	int length;
 	int replyStatus;
 	int delivered;
+	int workersFinished;
 	(void)arg;
 	waitingSender = PNUL;
 	waitingScreen = PNUL;
+	workersFinished = 0;
 
 
 	/* Create the incoming and outgoing message queues */
@@ -650,15 +687,6 @@ void ServerThread(void *arg) {
 	request = *receivedRequest;
 		
 	if (request.type == REQUEST_EXIT) {
-		chatShuttingDown = 1;
-		printf("ServerThread: shutting down\n");
-		
-		replyStatus = Reply(senderPid, NULL, 0);
-		if (replyStatus != 0) {
-			fprintf(stderr, "ServerThread: exit reply failed\n");
-		}
-		continue;
-		
 		
 	chatShuttingDown = 1;
 	
@@ -681,7 +709,30 @@ void ServerThread(void *arg) {
 	}
 	continue;
 	}
-
+	
+	/* worker has finished its cleanup */
+	if (request.type == REQUEST_WORKER_DONE) {
+		workersFinished++;
+		replyStatus = Reply(senderPid, NULL, 0);
+		
+		if (replyStatus != 0 ) {
+			fprintf(stderr, "ServerThread: worker reply failed\n");
+		}
+		
+		if (chatShuttingDown && workersFinished == 4) {
+			printf("ServerThread: all workers stopped\n");
+			break;
+		}
+	
+		continue;
+	}
+		
+	/* dont accpet new work after shutdown begins */
+	if (chatShuttingDown) {
+		Reply(senderPid, NULL, 0);
+		continue;
+	}
+	
 
 	
 
@@ -714,13 +765,13 @@ void ServerThread(void *arg) {
 			sizeof(ChatMessage));
 		if (delivered != 0) {
 			fprintf(stderr, "ServerThread: sender reply failed\n");
-			/* TODO: recover undelivered message */
+			
 		}
 
 		waitingSender = PNUL;
 
-		/* TODO: Free queueMessage safely after
- 		* the sender has finished using it
+	
+ 		/* the sender has finished using it
  		*/
 
 		}
@@ -746,7 +797,9 @@ void ServerThread(void *arg) {
 	}
 	}
 	replyStatus = Reply(senderPid, NULL, 0);
-
+	
+	continue;
+	}
 
 	  /* remember workers waiting for messages */
         if (request.type == REQUEST_OUTGOING) {
@@ -791,6 +844,34 @@ void ServerThread(void *arg) {
 		fprintf(stderr, "ServerThread: Reply failed \n");
 		}
 	}
+	
+	/* free remaining incoming messages */
+	while (ListCount(incomingQueue) > 0 ) {
+		ListFirst(incomingQueue);
+		queuedMessage = (ChatMessage*)ListRemove(incomingQueue);
+		free(queuedMessage);
+	}
+	
+	/* free any remaining outgoing messages */
+	while (ListCount(outgoingQueue) > 0) {
+		ListFirst(outgoingQueue);
+		queuedMessage = (ChatMessage*)ListRemove(outgoingQueue);
+		free(queuedMessage);
+	}
+		
+	/* Free empty incoming and outgoing lists */
+	ListFree(incomingQueue, free);
+	ListFree(outgoingQueue, free);
+	
+	/* Close the UDP socket after all workers have stopped */
+	if (close(chatConfig.socketFd) == -1) {
+		perror("ServerThread: close socket");
+	} else {
+		printf("ServerThread: UDP socket closed\n");
+	}
+
+
+	
 
 }
-}
+
