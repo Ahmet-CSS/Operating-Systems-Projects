@@ -272,8 +272,89 @@ void mainp(int argc, char *argv[]) {
  * 
  */
 void KeyboardThread(void *arg) {
-	(void)arg;
-	/*TODO read keyboard input */
+	ChatRequest request;
+	struct timeval timestamp;
+	char input[MAX_MESSAGE];
+	int inputLength;
+	int length;
+	int flags;
+	int result;
+  	(void)arg;
+	
+	/* save the original keyboard settings */
+	flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+	
+	if(flags == -1) {
+		perror("KeyboardThread: fcntl");
+		return;
+	}
+	/* make keybaord input nonbloccking */
+	if(fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK) == -1) {
+		perror("KeyboardThread: O_NONBLOCK");
+		return;
+	}
+	
+	/*Read keyboard input and build complete lines */
+	inputLength = 0;
+	for(;;) {
+		char ch;
+		ssize_t bytesRead;
+		
+		bytesRead = read(STDIN_FILENO, &ch, 1);
+ 		if (bytesRead == 1) {
+		
+		/* a complete message has been entered */
+		if (ch == '\n') {
+			input[inputLength] = '\0';
+			
+			/* record the time when the message was entered */
+			if(gettimeofday(&timestamp, NULL) == -1) {
+				perror("KeyboardThread: gettimeofday");
+				break;
+			}
+		
+
+		/* Prepare the request for ServerThread */
+		memset(&request, 0, sizeof(request));
+		request.type = ADD_OUTGOING;
+		strncpy(request.message.text, input, MAX_MESSAGE - 1);
+		
+		request.message.seconds = (unsigned int)timestamp.tv_sec;
+		request.message.microseconds = (unsigned int)timestamp.tv_usec;
+
+		/* send the completed message to the server */
+		length = sizeof(request);
+		Send(serverPid, &request, &length);
+		/* prepare for next message */
+		inputLength = 0;
+		} else if (inputLength < MAX_MESSAGE - 1) {
+		
+			input[inputLength] = ch;
+			inputLength++;
+		} else if (bytesRead == 0) {
+		/* end of input */
+			break;
+		} else if (errno == EAGAIN || errno == EWOULDBLOCK || 
+		errno == EINTR ) {
+		/* no input available, let other UBC threads run */
+		Sched();
+		} else {
+		perror("KeyboardThread: read");
+		break;
+		}
+	
+	}
+	}
+	/* TODO: Record the timestamp using gettimeofday() */
+	/* TODO: Send ADD_OUTGOING requests to ServerThread */
+	/* TODO: restore original keyboard flags before exiting */
+	
+	result = fcntl(STDIN_FILENO, F_SETFL, flags);
+	
+	if(result == -1) {
+	perror("KeyboardThread: restore flags");
+	}
+
 
 
 }
@@ -335,8 +416,36 @@ void ReceiveThread(void *arg) {
  * Displays received messages.
  */
 void ScreenThread(void *arg) {
+	ChatRequest request;
+	ChatMessage *message;
+	int length;
 	(void)arg;
-    /* TODO Display messages on screen. */
+		
+
+	for(;;) {
+		/*request the oldest incoming message */
+		
+		memset(&request, 0, sizeof(request));
+		request.type = REQUEST_INCOMING;
+		
+		length = sizeof(request);
+	
+		message = (ChatMessage*)Send(serverPid, &request, &length);
+		
+		if (message == NULL) {
+			fprintf(stderr, "ScreenThread: no server reply\n");
+			break;
+		}
+	
+		/* Display the sender's timestamp and message */
+		printf("[%u.%06u] %s\n", message->seconds, 
+			message->microseconds, message->text);
+		fflush(stdout);
+		
+		/* server transferred ownership of this message */
+		free(message);
+	} 
+    
 }
 
 
