@@ -14,12 +14,17 @@
 #include <stdlib.h>
 #include "Monitor.h"
 #include "list.h"
-
-/* Includes for RTT will be activated in Phase 2 */
-/* #include <rtt/rtt.h> */
-/* #include <rtt/rttsem.h> */
+#include <rtthreads.h>
 
 LIST *cv_lists[MAX_CV];
+
+
+/* 
+ * global mutex semaphor for mutual exclusion 
+ * acrosl monitor routines.
+ */
+RttSem monitor_mutex;
+
 
 /*
  * Purpose: Initializes the monitor's internal structures, including the lists 
@@ -27,13 +32,18 @@ LIST *cv_lists[MAX_CV];
  * Parameters: None
  * Returns: void
  */
-void MonInit(int numConds) {
+void RttMonInit(int numConds) {
     int i;
 
     if (numConds <= 0 || numConds > MAX_CV) {
 	fprintf(stderr, "Error: Invalid number of conditions\n");
 	exit(1);
 	} 
+
+	/* allocateding the semaphore with inital val of 1, used the rttapi
+ * document to use RTTPRIORITY rather than RTT_IPC_prio as 
+ * the mode parameter */
+	RttAllocSem(&monitor_mutex, 1, RTTPRIORITY);
 
     for (i = 0; i < numConds; i++) {
         cv_lists[i] = ListCreate();
@@ -51,9 +61,12 @@ void MonInit(int numConds) {
  * Parameters: None
  * Returns: void
  */
-void MonEnter(void) {
+void RttMonEnter(void) {
     printf("MonEnter called.\n");
+    /* Wait on the monitor's global mutex to acquire exclusive access */
+    RttP(monitor_mutex);
 }
+
 
 /*
  * Purpose: Acts as the exit gate for the monitor. Releases mutual exclusion
@@ -61,8 +74,10 @@ void MonEnter(void) {
  * Parameters: None
  * Returns: void
  */
-void MonLeave(void) {
+void RttMonLeave(void) {
     printf("MonLeave called.\n");
+    /* Signal the monitor's global mutex to let the next thread in */
+    RttV(monitor_mutex);
 }
 
 /*
@@ -72,12 +87,45 @@ void MonLeave(void) {
  * to wait on (0 to MAX_CV-1)
  * Returns: 0 on success, -1 if the cv index is out of bounds.
  */
-int MonWait(int cv) {
+int RttMonWait(int cv) {
+    RttSem *private_sem;
     if (cv < 0 || cv >= MAX_CV) {
         fprintf(stderr, "Error: Invalid CV index %d\n", cv);
         return -1;
     }
     printf("MonWait called on cv %d.\n", cv);
+
+    /* 
+     * 
+     * Create a specific semaphore for this thread so it can block itself. 
+     * It starts locked (value 0). We then queue it from list library.
+     */
+    private_sem = (RttSem *)malloc(sizeof(RttSem));
+    RttAllocSem(private_sem, 0, RTTPRIORITY);
+    
+    ListAppend(cv_lists[cv], (void *)private_sem);
+
+    /* Release the monitor lock so other threads aren't deadlocked 
+ 	* while we sleep */
+    RttMonLeave();
+
+    /* 
+     * sleep until another thread calls RttMonSignal and wakes 
+     * this specific semaphore 
+     */
+    RttP(*private_sem);
+
+    /* 
+     *  
+     * woke up the sem. Clean up our private 
+     * semaphore to avoid memory leaks. 
+     */
+    RttFreeSem(*private_sem);
+    free(private_sem);
+
+    /* reacquire the monitor lock before executing the 
+ 	* rest of the critical section */
+    RttMonEnter();
     return 0;
 }
 
@@ -89,11 +137,23 @@ int MonWait(int cv) {
  * signal (0 to MAX_CV-1)
  * Returns: 0 on success, -1 if the cv index is out of bounds.
  */
-int MonSignal(int cv) {
+int RttMonSignal(int cv) {
+    RttSem *popped_sem;
     if (cv < 0 || cv >= MAX_CV) {
         fprintf(stderr, "Error: Invalid CV index %d\n", cv);
         return -1;
     }
     printf("MonSignal called on cv %d.\n", cv);
+
+    /* 
+     * Check ifthe list library actually has threads waiting on this CV. 
+     * If so, pull the first one out and wake it up using RttV.
+     */
+    if (ListCount(cv_lists[cv]) > 0) {
+        ListFirst(cv_lists[cv]);
+        popped_sem = (RttSem *)ListRemove(cv_lists[cv]);
+        
+        RttV(*popped_sem);
+    }
     return 0;
 }

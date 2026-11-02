@@ -17,10 +17,10 @@
 
 #define MAX_CV 10
 
-void MonInit(int numConds);
-void MonEnter(void);
-void MonLeave(void);
-int MonWait(int cv);
-int MonSignal(int cv);
+void RttMonInit(int numConds);
+void RttMonEnter(void);
+void RttMonLeave(void);
+int RttMonWait(int cv);
+int RttMonSignal(int cv);
 
 #endif
