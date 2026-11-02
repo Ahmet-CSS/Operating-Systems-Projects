@@ -369,6 +369,16 @@ void KeyboardThread(void *arg) {
 	perror("KeyboardThread: restore flags");
 	}
 	
+	/* request shutdown when keyboard input reaches EOF */
+	if (!chatShuttingDown) {
+		memset(&request, 0, sizeof(request));
+		request.type = REQUEST_EXIT;
+		length = sizeof(request);
+		Send(serverPid, &request, &length);
+	}
+
+
+	
 	/* Notify ServerThread that keyboard cleanup is complete */
 	memset(&request, 0, sizeof(request));
 	request.type = REQUEST_WORKER_DONE;
@@ -391,11 +401,6 @@ void KeyboardThread(void *arg) {
  * other errors r reported using perror()
  *
 */
-
-/*
- * TODO: Test malformed UDP packets, invalid timestamps
- * oversized messages and nonblocking socket behavior
- */
 void ReceiveThread(void *arg) {
 
     ChatConfig *config = (ChatConfig *)arg;
@@ -713,16 +718,38 @@ void ServerThread(void *arg) {
 	/* worker has finished its cleanup */
 	if (request.type == REQUEST_WORKER_DONE) {
 		workersFinished++;
+		
+	
+                if (chatShuttingDown && workersFinished == 4) {                 
+                        printf("ServerThread: all workers stopped\n");          
+                        
+		
+		while (ListCount(incomingQueue) > 0) {
+			queuedMessage = ListFirst(incomingQueue);
+			ListRemove(incomingQueue);
+			free(queuedMessage);
+		}
+		
+		while (ListCount(outgoingQueue) > 0) {
+			queuedMessage = ListFirst(outgoingQueue);
+			ListRemove(outgoingQueue);
+			free(queuedMessage);
+		}
+		
+		ListFree(incomingQueue, free);
+		ListFree(outgoingQueue, free);
+		close(chatConfig.socketFd);
+		printf("ServerThread: UDP socket closed\n");
+		Reply(senderPid, NULL, 0);
+		return;
+	}
+
 		replyStatus = Reply(senderPid, NULL, 0);
 		
 		if (replyStatus != 0 ) {
 			fprintf(stderr, "ServerThread: worker reply failed\n");
 		}
 		
-		if (chatShuttingDown && workersFinished == 4) {
-			printf("ServerThread: all workers stopped\n");
-			break;
-		}
 	
 		continue;
 	}
@@ -845,23 +872,7 @@ void ServerThread(void *arg) {
 		}
 	}
 	
-	/* free remaining incoming messages */
-	while (ListCount(incomingQueue) > 0 ) {
-		ListFirst(incomingQueue);
-		queuedMessage = (ChatMessage*)ListRemove(incomingQueue);
-		free(queuedMessage);
-	}
 	
-	/* free any remaining outgoing messages */
-	while (ListCount(outgoingQueue) > 0) {
-		ListFirst(outgoingQueue);
-		queuedMessage = (ChatMessage*)ListRemove(outgoingQueue);
-		free(queuedMessage);
-	}
-		
-	/* Free empty incoming and outgoing lists */
-	ListFree(incomingQueue, free);
-	ListFree(outgoingQueue, free);
 	
 	/* Close the UDP socket after all workers have stopped */
 	if (close(chatConfig.socketFd) == -1) {
