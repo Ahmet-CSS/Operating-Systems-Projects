@@ -46,9 +46,8 @@ reader_writer_test: readers_writers_linux.o reader_writer_monitor_linux.o \
 	       	readers_writers_linux.o \
 		reader_writer_monitor_linux.o \
 		-L. -lMonitor -llist\
-		$(PTH_LIB) -lpthreads\
 		$(RTT_LIB) -lRtt\
-		-ltirpc
+		-ltirpc -lRttUtils 
 		
 
 reader_writer_monitor_linux.o: reader-writer-monitor.c \

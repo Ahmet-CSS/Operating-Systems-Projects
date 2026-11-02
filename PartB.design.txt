@@ -43,10 +43,7 @@ ready so that the provided reader_writer test can link to our library without
 crashing. Phase 2 will plug in the actual RttP/RttV calls.
 
 
-Pseudocode:
-PartB.design.txt
 
-Plaintext
 CMPT 332 Group - Fall 2026
 Emilio Montelongo Luna (11317059) & Ahmet Guldadov (11369772)
 Part B: Monitor Implementation Design & Pseudocode
@@ -70,38 +67,50 @@ thread to enter the monitor. Crucially, upon waking, the signaled thread
 immediately blocks to re-acquire the `monitor_mutex`, ensuring that the mutual 
 exclusion invariant is never violated during a context switch.
 
-PSEUDOCODE:
 
-MonInit():
-    monitor_mutex = RttAllocSem(1)
-    for i from 0 to MAX_CV - 1:
-        cv_sems[i] = RttAllocSem(0)
+ Code Changes & Removals
+- Changed <os.h> and <standards.h> to <rtthreads.h> from reader_writer.c.
+- Replaced PID, Create(), and Sleep() with RttThreadId, RttCreate(), and 
+  RttSleep() to actually use the RT Threads API.
+- Removed -lpthreads from the reader/writer Makefile target. 
+Linking it alongside
+  -lRtt caused multiple definition errors for 'main'.
+- Added -lRttUtils to the Makefile so it could find RttSleep.
+
+ What We Learned from Discussions & API Docs
+- canvas: Prof Makaroff confirmed we need to add the Rtt prefix to all 
+  monitor functions (like RttMonWait). 
+- canvas: The provided test file didn't actually initialize the monitor. We 
+  had to add Initialize() inside mainp() to fix this.
+- API Docs: RttCreate requires an RttSchAttr struct for scheduling. 
+- API Docs: RttAllocSem needs a mode flag, so we picked RTTPRIORITY.
+
+
+ Pseudocode
+
+RttMonInit(numConds):
+    RttAllocSem(&monitor_mutex, 1, RTTPRIORITY)
+    for i = 0 to numConds - 1:
         cv_lists[i] = ListCreate()
 
-MonEnter():
+RttMonEnter():
     RttP(monitor_mutex)
 
-MonLeave():
+RttMonLeave():
     RttV(monitor_mutex)
 
-MonWait(cv):
-    thread_id = RttMyId()
-    ListAppend(cv_lists[cv], thread_id)
+RttMonWait(cv):
+    private_sem = allocate new semaphore(0, RTTPRIORITY)
+    ListAppend(cv_lists[cv], private_sem)
     
-    /* Release the monitor lock so others can enter */
-    RttV(monitor_mutex)
+    RttMonLeave()       /* drop main lock */
+    RttP(private_sem)   /* go to sleep */
+    free(private_sem)
     
-    /* Block the current thread on condition variable */
-    RttP(cv_sems[cv])
-    
-    /* Thread woke up (was signaled). Must re-acquire themonitor lock */
-    RttP(monitor_mutex)
+    RttMonEnter()       /* grab lock again after waking up */
 
-MonSignal(cv):
-    /* If no one is waiting, signal does nothing */
+RttMonSignal(cv):
     if ListCount(cv_lists[cv]) > 0:
         ListFirst(cv_lists[cv])
-        thread_id = ListRemove(cv_lists[cv])
-        
-        /* Wake up th thread that was removed from the list */
-        RttV(cv_sems[cv])
+        popped_sem = ListRemove(cv_lists[cv])
+        RttV(popped_sem) /* wake the specific thread */
