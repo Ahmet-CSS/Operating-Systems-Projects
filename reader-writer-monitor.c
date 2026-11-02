@@ -50,17 +50,17 @@ static int busyWriting =0;
 /* MONITOR PROCEDURES */
 void Initialize(void)
 {
-      MonInit(numConds);
+      RttMonInit(numConds);
 }
 
 void StartRead()
 {
-  MonEnter();
+  RttMonEnter();
 
   /* if there is a writer */
   if (busyWriting)
     {
-      MonWait(OKtoRead);
+      RttMonWait(OKtoRead);
     }
   /* once we are signaled, we can continue.
    * There will be at least one reader, so we can be assured
@@ -73,38 +73,38 @@ void StartRead()
   numReaders++;
   printf("starting value of numReaders = %d\n", numReaders);
   
-  MonSignal(OKtoRead);
+  RttMonSignal(OKtoRead);
   
-  MonLeave();
+  RttMonLeave();
 
 }
 
 void StopRead()
 {
-  MonEnter();
+  RttMonEnter();
   numReaders--;
   printf("stopping value of numReaders = %d\n", numReaders);
   /* Only signal the writer when all readers have gone */
-  if (numReaders == 0) MonSignal(OKtoWrite);
-  MonLeave();
+  if (numReaders == 0) RttMonSignal(OKtoWrite);
+  RttMonLeave();
   
   
 }
 
 void StartWrite()
 {
-  MonEnter(); 
+  RttMonEnter(); 
 
   /* if there are any readers or a writer */
   if ((numReaders !=0) || busyWriting)
-    MonWait(OKtoWrite);
+    RttMonWait(OKtoWrite);
   busyWriting = 1;
-  MonLeave();
+  RttMonLeave();
 }
 
 void StopWrite()
 {
-  MonEnter();
+  RttMonEnter();
 
   busyWriting = 0;
 
@@ -114,8 +114,8 @@ void StopWrite()
    * then we'd need a mechanism to eventually signal a reader.
    * We couldn't signal a writer and then immediately signal a reader.
   */
-  MonSignal(OKtoRead);
+  RttMonSignal(OKtoRead);
 
-  MonLeave();
+  RttMonLeave();
 
 }

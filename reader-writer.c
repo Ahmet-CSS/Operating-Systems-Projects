@@ -28,15 +28,15 @@
 
 
 #include <stdio.h>
-
-#include <os.h>
+#include <stdlib.h>
+#include <rtthreads.h>
 #include <standards.h>
 
 #include <reader-writer-monitor.h>
 
 #define SLEEPMAX 20
 
-PID reader(void *arg)
+void reader(void *arg)
 {
   long myId;
   
@@ -47,14 +47,14 @@ PID reader(void *arg)
       printf("%ld start read\n", myId);
       StartRead();
       printf("%ld Reading\n", myId);
-      Sleep((int) (rand() % SLEEPMAX));
+      RttSleep((int) (rand() % SLEEPMAX));
       StopRead();
       printf("%ld stop read\n", myId);
-      Sleep((int) (rand() % SLEEPMAX));
+      RttSleep((int) (rand() % SLEEPMAX));
     }
 }
 
-PID writer(void *arg)
+void writer(void *arg)
 {
   long myId;
   myId = (long) arg;
@@ -64,37 +64,50 @@ PID writer(void *arg)
       printf("%ld start write\n", myId);
       StartWrite();
       printf("%ld writing\n", myId);
-      Sleep((int) (rand() % SLEEPMAX*5));
+      RttSleep((int) (rand() % SLEEPMAX*5));
       StopWrite();
       printf("%ld stop write\n", myId);
-      Sleep((int) (rand() % SLEEPMAX*6));
+      RttSleep((int) (rand() % SLEEPMAX*6));
     }
   
 }
 
 int mainp()
 {
-    PID tempPid, temp2, temp3;
-    setbuf(stdout, 0);
+    RttSchAttr attrs;
+    RttThreadId tempPid, temp2, temp3; 
+    
+    Initialize();
 
+    attrs.startingtime = RTTZEROTIME;
+    attrs.priority = RTTNORM;
+    attrs.deadline = RTTNODEADLINE;
+    
+    setbuf(stdout, 0);
     srand(71);
 
-    tempPid = Create((void(*)()) reader, 16000, "R1", (void *) 1000, 
-		      NORM, USR );
-    if (tempPid == PNUL) perror("Create");
-    temp2 = Create(  (void(*)()) writer, 16000, "W1", (void *) 500, 
-		       NORM, USR );
-    if (temp2 == PNUL) perror("Create");
-    temp3 = Create(  (void(*)()) reader, 16000, "R2", (void *) 1001,
-		       NORM, USR );
-    if (temp3 == PNUL) perror("Create");
-    temp3 = Create(  (void(*)()) reader, 16000, "R3", (void *) 1002, 
-		       NORM, USR );
-    if (temp3 == PNUL) perror("Create");
-    temp3 = Create(  (void(*)()) writer, 16000, "W2", (void *) 501, 
-		       NORM, USR );
-    if (temp3 == PNUL) perror("Create");
+    /* changed thread creation using RttCreate */
+    if (RttCreate(&tempPid, (void(*)()) reader, 16000, "R1", 
+(void *) 1000, attrs, RTTUSR) == RTTFAILED) 
+        perror("Create R1");
+        
+    if (RttCreate(&temp2, (void(*)()) writer, 16000, "W1", 
+(void *) 500, attrs, RTTUSR) == RTTFAILED) 
+        perror("Create W1");
+        
+    if (RttCreate(&temp3, (void(*)()) reader, 16000, "R2", 
+(void *) 1001, attrs, RTTUSR) == RTTFAILED) 
+        perror("Create R2");
+        
+    if (RttCreate(&temp3, (void(*)()) reader, 16000, "R3", 
+(void *) 1002, attrs, RTTUSR) == RTTFAILED) 
+        perror("Create R3");
+        
+    if (RttCreate(&temp3, (void(*)()) writer, 16000, "W2",
+(void *) 501, attrs, RTTUSR) == RTTFAILED) 
+        perror("Create W2");
+        
     printf("Reader and Writer processes created\n");
-    
+
     return(0);
 }
