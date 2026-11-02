@@ -77,7 +77,7 @@ void ListFree(LIST *list, ItemFree itemFree) {
         return;
     }
     
-    printf("Got to procedure ListFree\n");
+    
     curr_node = list->head;
         while (curr_node != NULL) {
                 if (itemFree != NULL && curr_node->item != NULL) {

@@ -100,11 +100,6 @@ void ServerThread(void *arg);
  */
 
 
-/*
- * TODO : Test two chat instances using different ports
- * Verify bidirectional UDP communication and message ordering
- * Test invalid arguments, invalid ports, and hostname errors
- */
 void mainp(int argc, char *argv[]) {
 	char *end;
 	long localPort;
@@ -638,11 +633,7 @@ void SendThread(void *arg) {
 
 
 
-/*
- * TODO: Debug shutdown syncronization
- * Verify that all four workers report REQUEST_WORKER_DONE
- * before the server realeases the queues and closes the socket
- */
+
 void ServerThread(void *arg) {
 
     /*  Manage message queues and synchronization */
