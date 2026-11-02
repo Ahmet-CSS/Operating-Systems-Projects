@@ -13,60 +13,16 @@
 
 
 
-Thoughts based on lecture slides / notes:
-- C doesn't have native monitor objects, so we have to fake the 
-mutual exclusion boundary.
-- The slides show that we can build monitor semantics using standard Semaphores
-- We need one global binary semaphore (initialized to 1). This is our monitor 
-lock.
-- MonEnter() will just wait on this semaphore (RttP) and MonLeave() will signal
- it (RttV).
-
-Condition Variables (CVs):
-- The assignment says k is a compile-time constant (we're using 10).
-- For each CV, we need a way to keep track of who is waiting.Our
-  A1 List library comes in here?. We'll have an array of 10 lists.
-- We also need an array of 10 semaphores (initialized to 0) to actually block 
-the threads.
-- Wait logic: 
-  * Add the thread to the CV's list.
-  * Release the main monitor lock (so someone else can enter).
-  * Block on the CV's specific semaphore.
-  * When woken up, we must re-acquire the main monitor lock before continuing.
-- Signal logic:
-  * Check if the CV's list has anyone in it.
-  * If it does, pop them off the list and signal their semaphore to wake them 
-up.
-
-For Phase 1, we are just getting the lists initialized and the function stubs 
-ready so that the provided reader_writer test can link to our library without 
-crashing. Phase 2 will plug in the actual RttP/RttV calls.
-
-
-
-CMPT 332 Group - Fall 2026
-Emilio Montelongo Luna (11317059) & Ahmet Guldadov (11369772)
-Part B: Monitor Implementation Design & Pseudocode
-
-SOLUTION STRATEGY:
-C does not have native monitor objects, so we enforce the mutual exclusion 
-boundary manually. We use a single global binary semaphore (initialized to 1) 
-called `monitor_mutex`. Every monitor procedure must start with `MonEnter()` 
-and end with `MonLeave()`. 
-
-For condition variables (CVs), we maintain an array of 10 lists (using our A1 
-list library) to track blocked threads, and an array of 10 semaphores 
-(initialized to 0) to execute the blocking. 
-
-WHY THIS IS CORRECT:
-By guarding every monitor entry/exit with the `monitor_mutex`, we guarantee 
-strict mutual exclusion; no two threads can execute monitor code simultaneously. 
-When a thread calls `MonWait()`, it deliberately releases the `monitor_mutex` 
-before blocking on the CV semaphore. This prevents deadlocks and allows another 
-thread to enter the monitor. Crucially, upon waking, the signaled thread 
-immediately blocks to re-acquire the `monitor_mutex`, ensuring that the mutual 
-exclusion invariant is never violated during a context switch.
-
+Solution Strategy & Why it Works
+- We built the lock manually using a global semaphore (monitor_mutex) set to 1 
+  with RTTPRIORITY.
+- RttMonEnter does RttP, RttMonLeave does RttV.
+- For condition variables, we used an array of lists from our A1 library.
+- When a thread waits, it makes its own private semaphore (set to 0), puts it
+  in the CV list, drops the main lock, and sleeps on its private semaphore. 
+- When signaled, we pop the first semaphore off the list and wake it up. 
+- Why it works: Dropping the main lock before sleeping prevents deadlocks. 
+  Grabbing it again right after waking up keeps the monitor safe.
 
  Code Changes & Removals
 - Changed <os.h> and <standards.h> to <rtthreads.h> from reader_writer.c.
