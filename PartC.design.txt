@@ -71,3 +71,291 @@ Only the server modifies the message queues, preventing
 concurrent list access. 
 Non blocking input and networking prevent one thread from 
 blocking the entire processes
+
+
+
+
+
+----------------------------------------------------------------------------
+
+
+
+
+FINAL DESIGN
+---------------------------------------------------------------------------
+
+Our final implementation uses five UBC pthreads and UDP sockets 
+to provide two way communication between two chat programs
+The five threads are KeyboardThread, ReceiveThread, ScreenThread, SendThread 
+and ServerThread. 
+Each thread has its own responsibility 
+while ServerThread manages the shared message queues
+
+We use two lists from our Assignment 1 List library. 
+The incoming queue stores messages received from the network
+and the outgoing queue stores messages entered by the user. 
+Only ServerThread accesses these lists. 
+The other threads communicate with the server using Send, Receive and Reply
+
+KeyboardThread reads input one character at a time using nonblocking input.
+When the user presses Enter, the thread attaches a timestamp 
+and sends the message to ServerThread. 
+If the user enters /quit or standard input reaches EOF, 
+the thread requests shutdown. Before finishing 
+it restores the original keyboard settings
+
+ReceiveThread uses a nonblocking UDP socket to check for incoming packets. 
+Each valid packet contains a 12-byte timestamp header followed by the message. 
+The first 8 bytes represent seconds and the next 4 bytes represent microseconds 
+The thread decodes the timestamp and forwards the message to ServerThread
+Packets shorter than the required header are rejected
+
+ScreenThread requests incoming messages from ServerThread. 
+If no message is available, the server keeps the request waiting 
+until a message arrives. When a message becomes available 
+ScreenThread displays the timestamp and text, then frees the allocated message
+
+SendThread requests outgoing messages from ServerThread. 
+It converts the timestamp into the UDP packet format and sends the message 
+to the remote host using sendto(). After sending it frees the message
+
+ServerThread receives requests from the four worker threads 
+It adds messages to the correct queue and removes them when requested 
+When a queue is empty the server remembers the waiting thread and replies
+when a message becomes available.
+
+For shutdown, KeyboardThread sends REQUEST_EXIT when the user types /quit 
+or reaches EOF. ServerThread sets the shutdown flag and wakes 
+any waiting threads each worker finishes its cleanup and 
+sends REQUEST_WORKER_DONE
+
+The server counts the completion requests
+once all four workers have reported completion
+it frees any remaining messages, releases both lists, 
+closes the UDP socket and replies to the final worker
+This allows the program to exit without leaving the final worker blocked
+
+
+FINAL DESIGN PSEUDOCODE
+---------------------------------------------------------------------------
+
+mainp():
+    Validate the command-line arguments
+    Check the local and remote port numbers
+    Create a UDP socket
+    Bind the socket to the local port
+    Resolve the remote hostname
+    Set the UDP socket to nonblocking mode
+    Create ServerThread
+    Create KeyboardThread
+    Create ReceiveThread
+    Create ScreenThread
+    Create SendThread
+    Return control to the UBC thread scheduler
+
+
+
+KeyboardThread():
+    Save the original keyboard settings
+    Set keyboard input to nonblocking mode
+
+    While shutdown has not been requested:
+        Try to read one character
+
+        If a character is available:
+            If Enter is pressed:
+                If the message is "/quit":
+                    Send REQUEST_EXIT to ServerThread
+                    Stop reading
+                Otherwise:
+                    Get the current timestamp
+                    Send ADD_OUTGOING to ServerThread
+                    Clear the input buffer
+            Otherwise:
+                Add the character to the input buffer
+
+        If no input is available:
+            Yield to another thread
+
+        If EOF is reached:
+            Stop reading
+
+    Restore the original keyboard settings
+
+    If shutdown has not already been requested:
+        Send REQUEST_EXIT to ServerThread
+
+    Send REQUEST_WORKER_DONE to ServerThread
+
+
+
+
+ReceiveThread():
+    While shutdown has not been requested:
+        Try to receive a UDP packet
+
+        If no packet is available:
+            Yield to another thread
+            Continue
+
+        If the packet is too short:
+            Reject the packet
+            Continue
+
+        Decode the timestamp
+        Extract the message text
+        Send ADD_INCOMING to ServerThread
+        Yield to another thread
+
+    Send REQUEST_WORKER_DONE to ServerThread
+
+
+ScreenThread():
+    While shutdown has not been requested:
+        Send REQUEST_INCOMING to ServerThread
+        Wait for the server's reply
+
+        If no message is returned:
+            Stop
+
+        Display the timestamp and message
+        Free the message memory
+
+    Send REQUEST_WORKER_DONE to ServerThread
+
+
+SendThread():
+    While shutdown has not been requested:
+        Send REQUEST_OUTGOING to ServerThread
+        Wait for the server's reply
+
+        If no message is returned:
+            Stop
+
+        Encode the timestamp into 12 bytes
+        Add the message text to the UDP packet
+        Send the packet using sendto()
+        Free the message memory
+
+    Send REQUEST_WORKER_DONE to ServerThread
+
+
+ServerThread():
+    Create incoming and outgoing message queues
+    Set the number of finished workers to zero
+
+    Repeatedly:
+        Receive a request from a worker
+
+        If request is REQUEST_EXIT:
+            Set the shutdown flag
+            Wake any waiting sender and screen threads
+            Reply to the requesting worker
+            Continue
+
+        If request is REQUEST_WORKER_DONE:
+            Increase the finished worker count
+
+            If shutdown is active and all four workers finished:
+                Free remaining messages in both queues
+                Free both lists
+                Close the UDP socket
+                Reply to the final worker
+                Return
+
+            Reply to the worker
+            Continue
+
+        If shutdown is active:
+            Reply without assigning new work
+            Continue
+
+        If request is ADD_OUTGOING:
+            Add the message to the outgoing queue
+            Wake the waiting sender if necessary
+            Reply to the requesting worker
+
+        If request is ADD_INCOMING:
+            Add the message to the incoming queue
+            Wake the waiting screen thread if necessary
+            Reply to the requesting worker
+
+        If request is REQUEST_OUTGOING:
+            If the outgoing queue contains a message:
+                Remove the next message
+                Reply with the message
+            Otherwise:
+                Remember the waiting sender
+
+        If request is REQUEST_INCOMING:
+            If the incoming queue contains a message:
+                Remove the next message
+                Reply with the message
+            Otherwise:
+                Remember the waiting screen thread
+
+
+CORRECTNESS
+---------------------------------------------------------------------------
+
+Only ServerThread modifies the incoming and outgoing lists 
+This prevents concurrent access to the message queues
+
+Nonblocking keyboard input and UDP operations allow other UBC threads 
+to continue running while waiting for input or network packets.
+
+Send, Receive and Reply provide synchronization between 
+the worker threads and ServerThread.
+
+During shutdown the server wakes waiting threads and waits for 
+all four workers to finish before releasing the message 
+queues and closing the UDP socket.
+
+Dynamically allocated messages are freed after they are displayed or sent
+Any messages remaining in the queues are freed during shutdown
+
+
+FINAL TESTING
+---------------------------------------------------------------------------
+
+After completing the implementation, we tested the chat program 
+to check communication, input handling and shutdown
+
+1 Two way communication:
+   We ran two instances of s-chat using ports 31001 and 31002
+   We sent messages in both directions and confirmed that the other
+   instance received and displayed them with timestamps
+
+2 Normal shutdown:
+   We entered /quit and confirmed that the program stopped all
+   four worker threads, freed the message queues, closed the UDP
+   socket and returned to the terminal.
+
+3 Keyboard EOF:
+   We tested input redirected through a pipe. Initially the program
+   did not shut down after reaching EOF. We fixed this by sending
+   REQUEST_EXIT before REQUEST_WORKER_DONE. After the fix the
+   program exited normally
+
+4 Invalid arguments:
+   We tested missing arguments invalid port values, nonnumeric
+   ports and an invalid hostname. The program rejected these
+   inputs without crashing
+
+5 Long messages:
+   We tested a message containing 1500 characters. The program
+   did not crash or hang and exited normally
+
+6 Invalid UDP packets:
+   We sent a UDP packet containing only 3 bytes, The program
+   detected the invalid packet and continued running
+
+7 Compilation:
+   We compiled the program using make s-chat and checked for
+   compiler warnings
+
+These tests confirmed that the main chat functions worked during
+our testing 
+
+
+
