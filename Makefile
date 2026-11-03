@@ -24,10 +24,22 @@ CFLAGS = -std=gnu90 -Wall -Wextra -pedantic -g
 
 CPPFLAGS = -I. -I/student/cmpt332/pthreads/ -I/student/cmpt332/rtt/include/ \
 		-I/usr/include/tirpc
+# Architechture specific library directories
+ARCH ?= x86_64
+
+ifeq ($(ARCH), x86_64)
+	LIB_ARCH = Linuxx86_64
+else ifeq ($(ARCH), ppc)
+	LIB_ARCH = Linuxppc
+else ifeq($(ARCH), arm)
+	LIB_ARCH = Linuxarmv7l
+else
+	$(error Unsupported architecture: $(ARCH))
+endif
 
 # Library paths for Linux x86_64
-RTT_LIB = -L/student/cmpt332/rtt/lib/Linuxx86_64
-PTH_LIB = -L/student/cmpt332/pthreads/lib/Linuxx86_64
+RTT_LIB = -L/student/cmpt332/rtt/lib/$(LIB_ARCH)
+PTH_LIB = -L/student/cmpt332/pthreads/lib/$(LIB_ARCH)
 
 all: libMonitor.a reader_writer_test s-chat liblist.a
 

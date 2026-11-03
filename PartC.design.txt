@@ -315,47 +315,389 @@ Dynamically allocated messages are freed after they are displayed or sent
 Any messages remaining in the queues are freed during shutdown
 
 
-FINAL TESTING
+TESTING
 ---------------------------------------------------------------------------
 
 After completing the implementation, we tested the chat program 
 to check communication, input handling and shutdown
 
-1 Two way communication:
-   We ran two instances of s-chat using ports 31001 and 31002
-   We sent messages in both directions and confirmed that the other
-   instance received and displayed them with timestamps
+Terminal 1:
 
-2 Normal shutdown:
-   We entered /quit and confirmed that the program stopped all
-   four worker threads, freed the message queues, closed the UDP
-   socket and returned to the terminal.
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
 
-3 Keyboard EOF:
-   We tested input redirected through a pipe. Initially the program
-   did not shut down after reaching EOF. We fixed this by sending
-   REQUEST_EXIT before REQUEST_WORKER_DONE. After the fix the
-   program exited normally
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 
+Usage: ./s-chat <localPort> <remoteHost> <remotePort>
 
-4 Invalid arguments:
-   We tested missing arguments invalid port values, nonnumeric
-   ports and an invalid hostname. The program rejected these
-   inputs without crashing
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat abc localhost 31002
+Error: invalid local port
 
-5 Long messages:
-   We tested a message containing 1500 characters. The program
-   did not crash or hang and exited normally
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 20000 localhost 31002
+Error: invalid local port
 
-6 Invalid UDP packets:
-   We sent a UDP packet containing only 3 bytes, The program
-   detected the invalid packet and continued running
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost abc
+Error: invalid remote port
 
-7 Compilation:
-   We compiled the program using make s-chat and checked for
-   compiler warnings
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 50000
+Error: invalid remote port
 
-These tests confirmed that the main chat functions worked during
-our testing 
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 nonexistent-host.invalid 31002
+Local port: 31001
+Remote host: nonexistent-host.invalid
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+getaddrinfo: Name or service not known
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+Hello from A
+Testing outgoing queue
+Third message
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+Queue test message 1
+Queue test message 2
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> printf 'Hello from EOF test\n' | timeout 5 ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+ScreenThread: no server reply
+ServerThread: shutting down
+SendThread: no server reply
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> echo $?
+0
+six402@s360-drone3:~/cmpt332/a2> { printf '%01500d\n' 0; printf '/quit\n'; } | timeout 5 ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+Chat shutdown requested
+ScreenThread: no server reply
+ServerThread: shutting down
+SendThread: no server reply
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ^C
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+quit
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+Message 1
+Message 2
+Message 3
+Message 4
+Message 5
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ^[[200~./s-chat 31001 localhost 31002~
+bash: ./s-chat: No such file or directory
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+ReceiveThread: invlaid packet
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31002
+Local port: 31001
+Remote host: localhost
+Remote port: 31002
+UDP socket created successefully
+UDP socket bound to port 31001
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
 
 
+
+are u still there
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> 
+
+
+Terminal 2
+
+./s-chat 31002 s360-drone2 31001
+Local port: 31002
+Remote host: s360-drone2
+Remote port: 31001
+UDP socket created successefully
+UDP socket bound to port 31002
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+pooka
+ReceiveThread: invlaid packet
+hello
+ReceiveThread: invlaid packet
+pookesh
+ReceiveThread: invlaid packet
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31002 localhost 31001
+Local port: 31002
+Remote host: localhost
+Remote port: 31001
+UDP socket created successefully
+UDP socket bound to port 31002
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+[1793669072.150749] Hello from A
+[1793669086.295028] Testing outgoing queue
+[1793669091.447106] Third message
+quit 
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31002 localhost 31001
+Local port: 31002
+Remote host: localhost
+Remote port: 31001
+UDP socket created successefully
+UDP socket bound to port 31002
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+[1793669184.185585] Queue test message 1
+[1793669196.697701] Queue test message 2
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31001 localhost 31003
+Local port: 31001
+Remote host: localhost
+Remote port: 31003
+UDP socket created successefully
+bind: Address already in use
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31002 localhost 31001
+Local port: 31002
+Remote host: localhost
+Remote port: 31001
+UDP socket created successefully
+UDP socket bound to port 31002
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+[1793669859.465684] quit
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31002 localhost 31001
+Local port: 31002
+Remote host: localhost
+Remote port: 31001
+UDP socket created successefully
+UDP socket bound to port 31002
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+[1793670098.880830] Message 1
+[1793670098.880877] Message 2
+[1793670098.880884] Message 3
+[1793670098.880890] Message 4
+[1793670099.151676] Message 5
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+six402@s360-drone3:~/cmpt332/a2> printf 'abc' > /dev/udp/127.0.0.1/31001
+six402@s360-drone3:~/cmpt332/a2> ./s-chat 31002 localhost 31001
+Local port: 31002
+Remote host: localhost
+Remote port: 31001
+UDP socket created successefully
+UDP socket bound to port 31002
+Remote hostname resolved seccessfully
+all five UBC threads created successfullyServer: message queues initialized 
+[1793670309.125403] 
+[1793670309.589493] 
+[1793670309.749474] 
+/quit
+Chat shutdown requested
+SendThread: no server reply
+ScreenThread: no server reply
+ServerThread: shutting down
+ServerThread: all workers stopped
+ServerThread: UDP socket closed
+
+exiting threads
+
+
+
+
+
+These tests confirmed that the main chat functions worked during testing
 
