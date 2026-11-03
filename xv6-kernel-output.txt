@@ -1,0 +1,62 @@
+
+
+#Emilio Montelongo Luna
+#11317069
+#rjq760
+#CMPT 332-Fall-2026
+
+# Ahmet Guldadov
+# Student Number: 11369772
+# NSID: six402
+# CMPT 332-Fall-2026
+
+
+xv6 kernel is booting
+
+hart 2 starting
+hart 1 starting
+init: starting sh
+$ prodcons
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+Consumer: took item. Buffer count: 0
+Producer: added item. Buffer count: 1
+$
+

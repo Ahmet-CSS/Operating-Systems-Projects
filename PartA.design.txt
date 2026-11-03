@@ -1,0 +1,39 @@
+# Emilio Montelongo Luna
+# Student Number: 11317059
+# NSID: rjq760
+# CMPT 332-Fall-2026
+
+# Ahmet Guldadov
+# Student Number: 11369772
+# NSID: six402
+# CMPT 332-Fall-2026
+
+Thread Implementation
+
+We utilized the userlevel thread context switching mechanism built in Lab 4 
+(uthread.c and uthread_switch.S). thread_create allocates a stack using 
+malloc, and thread_yield calls thread_schedule to 
+context switch using our assembly routine.
+
+Mutex Implementation
+
+Based on the xv6 textbook's chapter on locking (Chapter 6), 
+we know that standard C assignments aren't atomic and can cause race 
+conditions. To fix this without kernel-level interrupts, 
+we implemented a user-level spinlock using GCC atomic built-ins 
+(__sync_lock_test_and_set), which map to the RISC-V amoswap instruction. 
+we also included __sync_synchronize() as a memory barrier to prevent the 
+compiler from re-ordering instructions across the critical section, 
+where the texbook shows us how to implment. 
+
+Instead of infinite spinning, if a thread fails to get the lock, 
+it calls thread_yield() to give up the CPU. we track the opaque IDs 
+requested by the API using a static array of 32 locks.
+
+Synch test
+
+We test the mutex using a shared bounded buffer of size 10. 
+The producer and consumer threads both share a single mutex lock. 
+Inside their loops, they acquire the lock, modify the buffer_count integer 
+atomically, print the status, unlock, and yield. Because every read/write to 
+buffer_count is guarded by the mutex, no race conditions occur.
